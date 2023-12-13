@@ -1,12 +1,20 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Burst;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
+//what does this script current contain
+
+/*
+1. Comments about each line of code and how they work
+2. Some code restructure for a small performance increase 
+    - reducing extern calls like line 528 , 529
+3. reduce code repeation through functions for more readibility
+*/
 //[BurstCompile]
-public class FlockBehaviourImprove : MonoBehaviour
+public class FlockBehaviourImproveV1 : MonoBehaviour
 {
     List<Obstacle> mObstacles = new List<Obstacle>();
 
@@ -27,13 +35,13 @@ public class FlockBehaviourImprove : MonoBehaviour
     public List<Flock> flocks = new List<Flock>();
     void Reset()
     {
-        flocks = new List<Flock>(){new Flock()};
+        flocks = new List<Flock>() { new Flock() };
     }
 
     private void OnDisable()
     {
         flocks = new List<Flock>() { new Flock() };
-        
+
     }
 
     void Start()
@@ -156,7 +164,7 @@ public class FlockBehaviourImprove : MonoBehaviour
                     {
                         Execute(flock, i);
                         if (i % BatchSize == 0)
-                        { 
+                        {
                             //yield back if it done more than a 100 boids
                             yield return null;
                         }
@@ -177,7 +185,7 @@ public class FlockBehaviourImprove : MonoBehaviour
         float separationSpeed = 0.0f;
 
         int count = 0;
-        //int separationCount = 0; //uncomment this out if u want to use
+        int separationCount = 0;
 
         Vector3 steerPos = Vector3.zero;
 
@@ -212,7 +220,7 @@ public class FlockBehaviourImprove : MonoBehaviour
                 other.transform.position).normalized;
                 //get direction vector from other to current
 
-                separationDir += targetDirection; 
+                separationDir += targetDirection;
                 separationSpeed += dist * flock.WEIGHT_SEPERATION;
                 //how much needs to be seperated base on the distance
                 //this formula can be tweak where the shorter the distance
@@ -223,12 +231,12 @@ public class FlockBehaviourImprove : MonoBehaviour
         if (count > 0)
         {
             speed = speed / count;
-            flockDir = flockDir / count; 
+            flockDir = flockDir / count;
             //getting the average speed and direction the flock needs to go
 
             flockDir.Normalize();
 
-            steerPos = steerPos / count; 
+            steerPos = steerPos / count;
             //finding the average position that the flock is going
         }
 
@@ -241,7 +249,7 @@ public class FlockBehaviourImprove : MonoBehaviour
         //    separationDir.Normalize();
         //}
 
-        Vector3 flockDirection = (steerPos - curr.transform.position) * 
+        Vector3 flockDirection = (steerPos - curr.transform.position) *
             (flock.useCohesionRule ? flock.WEIGHT_COHESION : 0.0f);
 
         /*
@@ -250,22 +258,22 @@ public class FlockBehaviourImprove : MonoBehaviour
         the weight, else just ignore it
         */
 
-        Vector3 separationDirection = separationDir * separationSpeed *     
+        Vector3 separationDirection = separationDir * separationSpeed *
             (flock.useSeparationRule ? flock.WEIGHT_SEPERATION : 0.0f);
         /*
          Get the seperation direction need to seperate from the boid nearby
          This direction would be ignored if there is no seperation rule is not stated
          */
 
-        Vector3 alignmentDirection = flockDir * speed * 
+        Vector3 alignmentDirection = flockDir * speed *
             (flock.useAlignmentRule ? flock.WEIGHT_ALIGNMENT : 0.0f);
         /*
          Where the boid intended wants to go. 
          */
 
 
-        curr.TargetDirection = alignmentDirection + 
-            separationDirection + 
+        curr.TargetDirection = alignmentDirection +
+            separationDirection +
             flockDirection;
         //add this together to form the final direction needed for the flock.
 
@@ -285,7 +293,7 @@ public class FlockBehaviourImprove : MonoBehaviour
             }
             yield return new WaitForSeconds(TickDurationRandom);
         }
-    } 
+    }
     void DoRandomFlockBehaviour(Flock flock)
     {
         List<Autonomous> autonomousList = flock.mAutonomous;
@@ -307,14 +315,14 @@ public class FlockBehaviourImprove : MonoBehaviour
             Vector3 dir = Vector3.zero;
             dir.x = Mathf.Cos(angle);
             dir.y = Mathf.Sin(angle);
-            
+
             autonomousList[i].TargetDirection += dir * flock.WEIGHT_RANDOM;
             autonomousList[i].TargetDirection.Normalize();
             //Debug.Log(autonomousList[i].TargetDirection);
 
             float speed = Random.Range(1.0f, autonomousList[i].MaxSpeed);
             autonomousList[i].TargetSpeed += speed * flock.WEIGHT_SEPERATION;
-            autonomousList[i].TargetSpeed /= 2.0f; 
+            autonomousList[i].TargetSpeed /= 2.0f;
             //average the speed for the boid
         }
     }

@@ -200,6 +200,7 @@ public class FlockBehaviour : MonoBehaviour
 
 #region coroutine
     //this function is big o of n^2 , n^3 if u consider the excute function
+
     IEnumerator Coroutine_Flocking()
     {
         while (true)
@@ -266,6 +267,7 @@ public class FlockBehaviour : MonoBehaviour
             yield return new WaitForSeconds(TickDurationRandom);
         }
     }
+
     IEnumerator Coroutine_AvoidObstacles()
     {
     while (true)
@@ -299,6 +301,7 @@ public class FlockBehaviour : MonoBehaviour
         yield return null;
     }
     }
+
     IEnumerator Coroutine_SeparationWithEnemies()
     {
     while (true)
@@ -322,6 +325,7 @@ public class FlockBehaviour : MonoBehaviour
         yield return null;
     }
     }
+
     IEnumerator Coroutine_Random_Motion_Obstacles()
     {
     while (true)
