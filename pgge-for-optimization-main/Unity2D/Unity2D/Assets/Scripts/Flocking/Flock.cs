@@ -18,6 +18,7 @@ public class Flock
   [Space(10)]
 
   [Header("Flocking Rules")]
+  //help ranging the rule
   public bool useRandomRule = true;
   public bool useAlignmentRule = true;
   public bool useCohesionRule = true;
@@ -27,18 +28,19 @@ public class Flock
   [Space(10)]
 
   [Header("Rule Weights")]
+  //use cap case to know that this is a constant
   [Range(0.0f, 10.0f)]
-  public float weightRandom = 1.0f;
+  public float WEIGHT_RANDOM = 1.0f;
   [Range(0.0f, 10.0f)]
-  public float weightAlignment = 2.0f;
+  public float WEIGHT_ALIGNMENT = 2.0f;
   [Range(0.0f, 10.0f)]
-  public float weightCohesion = 3.0f;
+  public float WEIGHT_COHESION = 3.0f;
   [Range(0.0f, 10.0f)]
-  public float weightSeparation = 8.0f;
+  public float WEIGHT_SEPERATION = 8.0f;
   [Range(0.0f, 50.0f)]
-  public float weightFleeOnSightEnemy = 50.0f;
+  public float WEIGHT_FLEE_ENEMY_ON_SIGHT = 50.0f;
   [Range(0.0f, 50.0f)]
-  public float weightAvoidObstacles = 10.0f;
+  public float WEIGHT_AVOID_OBSTICLES = 10.0f;
 
   [Space(10)]
   [Header("Properties")]

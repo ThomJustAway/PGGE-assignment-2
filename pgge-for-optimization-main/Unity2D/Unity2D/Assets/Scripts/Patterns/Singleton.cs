@@ -14,6 +14,7 @@ namespace Patterns
             {
                 if (s_instance == null)
                 {
+                    //add component if none
                     s_instance = FindObjectOfType<T>();
                     if (s_instance == null)
                     {

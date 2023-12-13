@@ -17,7 +17,7 @@ public class FlockBehaviour : MonoBehaviour
   public float TickDurationSeparationEnemy = 0.1f;
   public float TickDurationRandom = 1.0f;
 
-  public int BoidIncr = 100;
+  public int BoidIncr = 100; //the number of boid to spawn
   public bool useFlocking = false;
   public int BatchSize = 100;
 
@@ -31,45 +31,57 @@ public class FlockBehaviour : MonoBehaviour
   }
 
   void Start()
-  {
-    // Randomize obstacles placement.
-    for(int i = 0; i < Obstacles.Length; ++i)
     {
-      float x = Random.Range(Bounds.bounds.min.x, Bounds.bounds.max.x);
-      float y = Random.Range(Bounds.bounds.min.y, Bounds.bounds.max.y);
-      Obstacles[i].transform.position = new Vector3(x, y, 0.0f);
-      Obstacle obs = Obstacles[i].AddComponent<Obstacle>();
-      Autonomous autono = Obstacles[i].AddComponent<Autonomous>();
-      autono.MaxSpeed = 1.0f;
-      obs.mCollider = Obstacles[i].GetComponent<CircleCollider2D>();
-      mObstacles.Add(obs);
+        SetObstacles();
+
+        foreach (Flock flock in flocks)
+        {
+            CreateFlock(flock);
+        }
+
+        //probably have to change this to something that runs
+        //on the worker thread using burst compile plus job system
+        StartCoroutine(Coroutine_Flocking());
+        StartCoroutine(Coroutine_Random());
+        StartCoroutine(Coroutine_AvoidObstacles());
+        StartCoroutine(Coroutine_SeparationWithEnemies());
+        StartCoroutine(Coroutine_Random_Motion_Obstacles());
     }
 
-    foreach (Flock flock in flocks)
+    private void SetObstacles()
     {
-      CreateFlock(flock);
+        // Randomize obstacles placement.
+        for (int i = 0; i < Obstacles.Length; ++i)
+        {
+            float x = Random.Range(Bounds.bounds.min.x, Bounds.bounds.max.x);
+            float y = Random.Range(Bounds.bounds.min.y, Bounds.bounds.max.y);
+
+            Obstacles[i].transform.position = new Vector3(x, y, 0.0f); //set position of the obstacles
+
+            Obstacle obs = Obstacles[i].AddComponent<Obstacle>();
+            Autonomous autono = Obstacles[i].AddComponent<Autonomous>();
+            //add the the obstacle and autonomouse component to the game
+
+            autono.MaxSpeed = 1.0f;
+            obs.mCollider = Obstacles[i].GetComponent<CircleCollider2D>();
+
+            mObstacles.Add(obs); //add collider for reference for the boid?
+        }
     }
 
-    StartCoroutine(Coroutine_Flocking());
+    void CreateFlock(Flock flock)
+    {
 
-    StartCoroutine(Coroutine_Random());
-    StartCoroutine(Coroutine_AvoidObstacles());
-    StartCoroutine(Coroutine_SeparationWithEnemies());
-    StartCoroutine(Coroutine_Random_Motion_Obstacles());
-  }
-
-  void CreateFlock(Flock flock)
-  {
     for(int i = 0; i < flock.numBoids; ++i)
     {
-      float x = Random.Range(Bounds.bounds.min.x, Bounds.bounds.max.x);
-      float y = Random.Range(Bounds.bounds.min.y, Bounds.bounds.max.y);
+        float x = Random.Range(Bounds.bounds.min.x, Bounds.bounds.max.x);
+        float y = Random.Range(Bounds.bounds.min.y, Bounds.bounds.max.y);
 
-      AddBoid(x, y, flock);
+        AddBoid(x, y, flock);
     }
-  }
+    }//they are the groups of boid (flock)
 
-  void Update()
+    void Update()
   {
     HandleInputs();
     Rule_CrossBorder();
@@ -108,103 +120,246 @@ public class FlockBehaviour : MonoBehaviour
     obj.name = "Boid_" + flock.name + "_" + flock.mAutonomous.Count;
     obj.transform.position = new Vector3(x, y, 0.0f);
     Autonomous boid = obj.GetComponent<Autonomous>();
-    flock.mAutonomous.Add(boid);
-    boid.MaxSpeed = flock.maxSpeed;
+
+    flock.mAutonomous.Add(boid); //add the autonomous component into the flock component
+
+    boid.MaxSpeed = flock.maxSpeed; //set the speed and rotation
     boid.RotationSpeed = flock.maxRotationSpeed;
   }
 
-  static float Distance(Autonomous a1, Autonomous a2)
-  {
-    return (a1.transform.position - a2.transform.position).magnitude;
-  }
-
-  void Execute(Flock flock, int i)
-  {
-    Vector3 flockDir = Vector3.zero;
-    Vector3 separationDir = Vector3.zero;
-    Vector3 cohesionDir = Vector3.zero;
-
-    float speed = 0.0f;
-    float separationSpeed = 0.0f;
-
-    int count = 0;
-    int separationCount = 0;
-    Vector3 steerPos = Vector3.zero;
-
-    Autonomous curr = flock.mAutonomous[i];
-    for (int j = 0; j < flock.numBoids; ++j)
+    static float Distance(Autonomous a1, Autonomous a2)
     {
-      Autonomous other = flock.mAutonomous[j];
-      float dist = (curr.transform.position - other.transform.position).magnitude;
-      if (i != j && dist < flock.visibility)
-      {
-        speed += other.Speed;
-        flockDir += other.TargetDirection;
-        steerPos += other.transform.position;
-        count++;
-      }
-      if (i != j)
-      {
-        if (dist < flock.separationDistance)
+        return (a1.transform.position - a2.transform.position).magnitude;
+    }
+
+    void Execute(Flock flock, int i)
+    {
+        Vector3 flockDir = Vector3.zero;
+        Vector3 separationDir = Vector3.zero;
+        Vector3 cohesionDir = Vector3.zero;
+
+        float speed = 0.0f;
+        float separationSpeed = 0.0f;
+
+        int count = 0;
+        int separationCount = 0;
+        Vector3 steerPos = Vector3.zero;
+
+        Autonomous curr = flock.mAutonomous[i];
+
+        for (int j = 0; j < flock.numBoids; ++j)
         {
-          Vector3 targetDirection = (
-            curr.transform.position -
-            other.transform.position).normalized;
+            if (i != j) continue; //if not the same then move on
 
-          separationDir += targetDirection;
-          separationSpeed += dist * flock.weightSeparation;
+            Autonomous other = flock.mAutonomous[j];
+            float dist = (curr.transform.position - other.transform.position).magnitude;
+
+            if(dist < flock.visibility)
+            { //if it is around the current boid visible range (circle)
+                speed += other.Speed;
+                flockDir += other.TargetDirection;
+                steerPos += other.transform.position;
+                count++;
+            }
+            if (dist < flock.separationDistance)
+            {//if the distance is lesser than the acceptable range
+
+                Vector3 targetDirection = (
+                curr.transform.position -
+                other.transform.position).normalized;
+                //get direction vector from other to current
+
+                separationDir += targetDirection;
+                separationSpeed += dist * flock.WEIGHT_SEPERATION;
+            }
         }
-      }
+
+        if (count > 0)
+        {
+            speed = speed / count;
+            flockDir = flockDir / count;
+            //getting the average speed and direction the flock needs to go
+
+            flockDir.Normalize();
+
+            steerPos = steerPos / count;
+        }
+        if (separationCount > 0)
+        {
+            separationSpeed = separationSpeed / count;
+            separationDir = separationDir / separationSpeed;
+            separationDir.Normalize();
+        }
+
+        curr.TargetDirection =
+            flockDir * speed * (flock.useAlignmentRule ? flock.WEIGHT_ALIGNMENT : 0.0f) +
+            separationDir * separationSpeed * (flock.useSeparationRule ? flock.WEIGHT_SEPERATION : 0.0f) +
+            (steerPos - curr.transform.position) * (flock.useCohesionRule ? flock.WEIGHT_COHESION : 0.0f);
     }
-    if (count > 0)
+
+
+#region coroutine
+    //this function is big o of n^2 , n^3 if u consider the excute function
+    IEnumerator Coroutine_Flocking()
     {
-      speed = speed / count;
-      flockDir = flockDir / count;
-      flockDir.Normalize();
-
-      steerPos = steerPos / count;
+        while (true)
+        {
+            if (useFlocking) 
+            {
+                foreach (Flock flock in flocks)
+                {
+                    List<Autonomous> autonomousList = flock.mAutonomous;
+                    //get all the boid from the flock
+                    for (int i = 0; i < autonomousList.Count; ++i)
+                    {
+                        Execute(flock, i);
+                        if (i % BatchSize == 0)
+                        {
+                            yield return null;
+                        }
+                    }
+                    yield return null;
+                }
+            }
+            yield return new WaitForSeconds(TickDuration);
+        }
     }
 
-    if (separationCount > 0)
+    IEnumerator Coroutine_Random()
     {
-      separationSpeed = separationSpeed / count;
-      separationDir = separationDir / separationSpeed;
-      separationDir.Normalize();
+        while (true)
+        {
+            foreach (Flock flock in flocks)
+            {
+                if (flock.useRandomRule)
+                {
+                    List<Autonomous> autonomousList = flock.mAutonomous;
+                    for (int i = 0; i < autonomousList.Count; ++i)
+                    {
+                        float rand = Random.Range(0.0f, 1.0f);
+                        autonomousList[i].TargetDirection.Normalize(); 
+                        float angle = Mathf.Atan2(autonomousList[i].TargetDirection.y, autonomousList[i].TargetDirection.x);
+
+                        if (rand > 0.5f)
+                        {
+                            angle += Mathf.Deg2Rad * 45.0f;
+                        }
+                        else
+                        {
+                            angle -= Mathf.Deg2Rad * 45.0f;
+                        }
+                        Vector3 dir = Vector3.zero;
+                        dir.x = Mathf.Cos(angle);
+                        dir.y = Mathf.Sin(angle);
+
+                        autonomousList[i].TargetDirection += dir * flock.WEIGHT_RANDOM;
+                        autonomousList[i].TargetDirection.Normalize();
+                        //Debug.Log(autonomousList[i].TargetDirection);
+
+                        float speed = Random.Range(1.0f, autonomousList[i].MaxSpeed);
+                        autonomousList[i].TargetSpeed += speed * flock.WEIGHT_SEPERATION;
+                        autonomousList[i].TargetSpeed /= 2.0f;
+                    }
+                }
+            //yield return null;
+            }
+            yield return new WaitForSeconds(TickDurationRandom);
+        }
     }
-
-    curr.TargetDirection =
-      flockDir * speed * (flock.useAlignmentRule ? flock.weightAlignment : 0.0f) +
-      separationDir * separationSpeed * (flock.useSeparationRule ? flock.weightSeparation : 0.0f) +
-      (steerPos - curr.transform.position) * (flock.useCohesionRule ? flock.weightCohesion : 0.0f);
-  }
-
-
-  IEnumerator Coroutine_Flocking()
-  {
+    IEnumerator Coroutine_AvoidObstacles()
+    {
     while (true)
     {
-      if (useFlocking)
-      {
         foreach (Flock flock in flocks)
         {
-          List<Autonomous> autonomousList = flock.mAutonomous;
-          for (int i = 0; i < autonomousList.Count; ++i)
-          {
-            Execute(flock, i);
-            if (i % BatchSize == 0)
+        if (flock.useAvoidObstaclesRule)
+        {
+            List<Autonomous> autonomousList = flock.mAutonomous;
+            for (int i = 0; i < autonomousList.Count; ++i)
             {
-              yield return null;
+            for (int j = 0; j < mObstacles.Count; ++j)
+            {
+                float dist = (
+                mObstacles[j].transform.position -
+                autonomousList[i].transform.position).magnitude;
+                if (dist < mObstacles[j].AvoidanceRadius)
+                {
+                Vector3 targetDirection = (
+                    autonomousList[i].transform.position -
+                    mObstacles[j].transform.position).normalized;
+
+                autonomousList[i].TargetDirection += targetDirection * flock.WEIGHT_AVOID_OBSTICLES;
+                autonomousList[i].TargetDirection.Normalize();
+                }
             }
-          }
-          yield return null;
+            }
         }
-      }
-      yield return new WaitForSeconds(TickDuration);
+        //yield return null;
+        }
+        yield return null;
     }
-  }
+    }
+    IEnumerator Coroutine_SeparationWithEnemies()
+    {
+    while (true)
+    {
+        foreach (Flock flock in flocks)
+        {
+        if (!flock.useFleeOnSightEnemyRule || flock.isPredator) continue;
 
+        foreach (Flock enemies in flocks)
+        {
+            if (!enemies.isPredator) continue;
 
-  void SeparationWithEnemies_Internal(
+            SeparationWithEnemies_Internal(
+            flock.mAutonomous, 
+            enemies.mAutonomous, 
+            flock.enemySeparationDistance, 
+            flock.WEIGHT_FLEE_ENEMY_ON_SIGHT);
+        }
+        //yield return null;
+        }
+        yield return null;
+    }
+    }
+    IEnumerator Coroutine_Random_Motion_Obstacles()
+    {
+    while (true)
+    {
+        for (int i = 0; i < Obstacles.Length; ++i)
+        {
+        Autonomous autono = Obstacles[i].GetComponent<Autonomous>();
+        float rand = Random.Range(0.0f, 1.0f);
+        autono.TargetDirection.Normalize();
+        float angle = Mathf.Atan2(autono.TargetDirection.y, autono.TargetDirection.x);
+
+        if (rand > 0.5f)
+        {
+            angle += Mathf.Deg2Rad * 45.0f;
+        }
+        else
+        {
+            angle -= Mathf.Deg2Rad * 45.0f;
+        }
+        Vector3 dir = Vector3.zero;
+        dir.x = Mathf.Cos(angle);
+        dir.y = Mathf.Sin(angle);
+
+        autono.TargetDirection += dir * 0.1f;
+        autono.TargetDirection.Normalize();
+        //Debug.Log(autonomousList[i].TargetDirection);
+
+        float speed = Random.Range(1.0f, autono.MaxSpeed);
+        autono.TargetSpeed += speed;
+        autono.TargetSpeed /= 2.0f;
+        }
+        yield return new WaitForSeconds(2.0f);
+    }
+    }
+
+#endregion
+
+    void SeparationWithEnemies_Internal(
     List<Autonomous> boids, 
     List<Autonomous> enemies, 
     float sepDist, 
@@ -233,138 +388,7 @@ public class FlockBehaviour : MonoBehaviour
     }
   }
 
-  IEnumerator Coroutine_SeparationWithEnemies()
-  {
-    while (true)
-    {
-      foreach (Flock flock in flocks)
-      {
-        if (!flock.useFleeOnSightEnemyRule || flock.isPredator) continue;
 
-        foreach (Flock enemies in flocks)
-        {
-          if (!enemies.isPredator) continue;
-
-          SeparationWithEnemies_Internal(
-            flock.mAutonomous, 
-            enemies.mAutonomous, 
-            flock.enemySeparationDistance, 
-            flock.weightFleeOnSightEnemy);
-        }
-        //yield return null;
-      }
-      yield return null;
-    }
-  }
-
-  IEnumerator Coroutine_AvoidObstacles()
-  {
-    while (true)
-    {
-      foreach (Flock flock in flocks)
-      {
-        if (flock.useAvoidObstaclesRule)
-        {
-          List<Autonomous> autonomousList = flock.mAutonomous;
-          for (int i = 0; i < autonomousList.Count; ++i)
-          {
-            for (int j = 0; j < mObstacles.Count; ++j)
-            {
-              float dist = (
-                mObstacles[j].transform.position -
-                autonomousList[i].transform.position).magnitude;
-              if (dist < mObstacles[j].AvoidanceRadius)
-              {
-                Vector3 targetDirection = (
-                  autonomousList[i].transform.position -
-                  mObstacles[j].transform.position).normalized;
-
-                autonomousList[i].TargetDirection += targetDirection * flock.weightAvoidObstacles;
-                autonomousList[i].TargetDirection.Normalize();
-              }
-            }
-          }
-        }
-        //yield return null;
-      }
-      yield return null;
-    }
-  }
-  IEnumerator Coroutine_Random_Motion_Obstacles()
-  {
-    while (true)
-    {
-      for (int i = 0; i < Obstacles.Length; ++i)
-      {
-        Autonomous autono = Obstacles[i].GetComponent<Autonomous>();
-        float rand = Random.Range(0.0f, 1.0f);
-        autono.TargetDirection.Normalize();
-        float angle = Mathf.Atan2(autono.TargetDirection.y, autono.TargetDirection.x);
-
-        if (rand > 0.5f)
-        {
-          angle += Mathf.Deg2Rad * 45.0f;
-        }
-        else
-        {
-          angle -= Mathf.Deg2Rad * 45.0f;
-        }
-        Vector3 dir = Vector3.zero;
-        dir.x = Mathf.Cos(angle);
-        dir.y = Mathf.Sin(angle);
-
-        autono.TargetDirection += dir * 0.1f;
-        autono.TargetDirection.Normalize();
-        //Debug.Log(autonomousList[i].TargetDirection);
-
-        float speed = Random.Range(1.0f, autono.MaxSpeed);
-        autono.TargetSpeed += speed;
-        autono.TargetSpeed /= 2.0f;
-      }
-      yield return new WaitForSeconds(2.0f);
-    }
-  }
-  IEnumerator Coroutine_Random()
-  {
-    while (true)
-    {
-      foreach (Flock flock in flocks)
-      {
-        if (flock.useRandomRule)
-        {
-          List<Autonomous> autonomousList = flock.mAutonomous;
-          for (int i = 0; i < autonomousList.Count; ++i)
-          {
-            float rand = Random.Range(0.0f, 1.0f);
-            autonomousList[i].TargetDirection.Normalize();
-            float angle = Mathf.Atan2(autonomousList[i].TargetDirection.y, autonomousList[i].TargetDirection.x);
-
-            if (rand > 0.5f)
-            {
-              angle += Mathf.Deg2Rad * 45.0f;
-            }
-            else
-            {
-              angle -= Mathf.Deg2Rad * 45.0f;
-            }
-            Vector3 dir = Vector3.zero;
-            dir.x = Mathf.Cos(angle);
-            dir.y = Mathf.Sin(angle);
-
-            autonomousList[i].TargetDirection += dir * flock.weightRandom;
-            autonomousList[i].TargetDirection.Normalize();
-            //Debug.Log(autonomousList[i].TargetDirection);
-
-            float speed = Random.Range(1.0f, autonomousList[i].MaxSpeed);
-            autonomousList[i].TargetSpeed += speed * flock.weightSeparation;
-            autonomousList[i].TargetSpeed /= 2.0f;
-          }
-        }
-        //yield return null;
-      }
-      yield return new WaitForSeconds(TickDurationRandom);
-    }
-  }
   void Rule_CrossBorder_Obstacles()
   {
     for (int i = 0; i < Obstacles.Length; ++i)
