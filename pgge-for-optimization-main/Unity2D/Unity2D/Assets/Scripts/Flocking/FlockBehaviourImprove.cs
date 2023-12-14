@@ -177,7 +177,7 @@ public class FlockBehaviourImprove : MonoBehaviour
         float separationSpeed = 0.0f;
 
         int count = 0;
-        //int separationCount = 0; //uncomment this out if u want to use
+        int separationCount = 0; //uncomment this out if u want to use
 
         Vector3 steerPos = Vector3.zero;
 
@@ -214,6 +214,7 @@ public class FlockBehaviourImprove : MonoBehaviour
 
                 separationDir += targetDirection; 
                 separationSpeed += dist * flock.WEIGHT_SEPERATION;
+                separationCount++;
                 //how much needs to be seperated base on the distance
                 //this formula can be tweak where the shorter the distance
                 //the more speed required to seperate the boids
@@ -232,14 +233,16 @@ public class FlockBehaviourImprove : MonoBehaviour
             //finding the average position that the flock is going
         }
 
+
         //code below is redundant as separation count is always 0
         //could open it again if u want to add separation count to the game
-        //if (separationCount > 0)
-        //    print("hello");
-        //    separationSpeed = separationSpeed / count;
-        //    separationDir = separationDir / separationSpeed;
-        //    separationDir.Normalize();
-        //}
+        if (separationCount > 0) { 
+            print("hello");
+            separationSpeed = separationSpeed / count;
+            separationDir = separationDir / separationSpeed;
+            separationDir.Normalize();
+        }
+
 
         Vector3 flockDirection = (steerPos - curr.transform.position) * 
             (flock.useCohesionRule ? flock.WEIGHT_COHESION : 0.0f);

@@ -88,44 +88,44 @@ public class FlockBehaviour : MonoBehaviour
     Rule_CrossBorder_Obstacles();
   }
 
-  void HandleInputs()
-  {
-    if (EventSystem.current.IsPointerOverGameObject() ||
-       enabled == false)
+    void HandleInputs()
     {
-      return;
+    if (EventSystem.current.IsPointerOverGameObject() ||
+        enabled == false)
+    {
+        return;
     }
 
     if (Input.GetKeyDown(KeyCode.Space))
     {
-      AddBoids(BoidIncr);
+        AddBoids(BoidIncr);
     }
-  }
+    }
 
-  void AddBoids(int count)
-  {
+    void AddBoids(int count)
+    {
     for(int i = 0; i < count; ++i)
     {
-      float x = Random.Range(Bounds.bounds.min.x, Bounds.bounds.max.x);
-      float y = Random.Range(Bounds.bounds.min.y, Bounds.bounds.max.y);
+        float x = Random.Range(Bounds.bounds.min.x, Bounds.bounds.max.x);
+        float y = Random.Range(Bounds.bounds.min.y, Bounds.bounds.max.y);
 
-      AddBoid(x, y, flocks[0]);
+        AddBoid(x, y, flocks[0]);
     }
     flocks[0].numBoids += count;
-  }
+    }
 
-  void AddBoid(float x, float y, Flock flock)
-  {
-    GameObject obj = Instantiate(flock.PrefabBoid);
-    obj.name = "Boid_" + flock.name + "_" + flock.mAutonomous.Count;
-    obj.transform.position = new Vector3(x, y, 0.0f);
-    Autonomous boid = obj.GetComponent<Autonomous>();
+    void AddBoid(float x, float y, Flock flock)
+    {
+        GameObject obj = Instantiate(flock.PrefabBoid);
+        obj.name = "Boid_" + flock.name + "_" + flock.mAutonomous.Count;
+        obj.transform.position = new Vector3(x, y, 0.0f);
+        Autonomous boid = obj.GetComponent<Autonomous>();
 
-    flock.mAutonomous.Add(boid); //add the autonomous component into the flock component
+        flock.mAutonomous.Add(boid); //add the autonomous component into the flock component
 
-    boid.MaxSpeed = flock.maxSpeed; //set the speed and rotation
-    boid.RotationSpeed = flock.maxRotationSpeed;
-  }
+        boid.MaxSpeed = flock.maxSpeed; //set the speed and rotation
+        boid.RotationSpeed = flock.maxRotationSpeed;
+    }
 
     static float Distance(Autonomous a1, Autonomous a2)
     {
