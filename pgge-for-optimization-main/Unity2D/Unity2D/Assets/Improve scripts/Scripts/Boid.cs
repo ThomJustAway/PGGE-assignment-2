@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Linq;
 using UnityEngine;
+using static Unity.Collections.AllocatorManager;
 
 namespace Assets.Improve_scripts.Scripts
 {
@@ -16,26 +17,34 @@ namespace Assets.Improve_scripts.Scripts
         /*targe direction is set by the flock behaviour 
          * used to determine where the boid/ obstacles will move
         */
-        public float RotationSpeed = 0.0f;
+        private float RotationSpeed = 0.0f;
 
         public SpriteRenderer spriteRenderer;
 
         public FlockCreator FlockCreator { get; private set; }
 
-        private Collider2D collider;
+        private Collider2D boidCollider;
 
         //to do write two function for seperation and alighnment
 
         public void Init(FlockCreator creator)
         {
+            name = "Boid_" + creator.name + "_" + creator.numberOfBoids;
             FlockCreator = creator;
             MaxSpeed = creator.maxSpeed;
             RotationSpeed = creator.maxRotationSpeed;
+
+            var bounds = FlocksController.Instance.BoxCollider2D.bounds;
+
+            //setting up the position of the boids
+            float x = Random.Range(bounds.min.x, bounds.max.x);
+            float y = Random.Range(bounds.min.y, bounds.max.y);
+            transform.position = new Vector2(x, y);
         }
 
         void Start()
         {
-            collider = GetComponent<Collider2D>();
+            boidCollider = GetComponent<Collider2D>();
             Speed = 0.0f;
             SetRandomSpeed();
             SetRandomDirection();
@@ -43,24 +52,26 @@ namespace Assets.Improve_scripts.Scripts
 
         public void Update()
         {
-            CompleteBoidBehaviour();
             //completete movement
+            CompleteBoidBehaviour();
             RotateGameObjectBasedOnTargetDirection();
             MoveBoid();
+
+            //check for collision
         }
 
         //will return a vector2 that has the magnitude and the directional vector.
         private void SeperationBehaviour()
         {
             var ObjectsNearby = Physics2D.CircleCastAll(transform.position,
-                FlockCreator.separationDistance,
+                FlockCreator.SeparationRadius,
                 Vector2.zero);
             Vector2 resultantVector = Vector2.zero;
 
             Vector2 boidPosition = transform.position;  
             foreach(var hitPoint  in ObjectsNearby)
             {
-                if (hitPoint.collider == collider) continue;
+                if (hitPoint.collider == boidCollider) continue;
                 Vector2 oppositeDirection = boidPosition - hitPoint.point; 
                 //the further away from boid to object, the lesser magnitude of repulsion
                 float magnitudeOfReplusion = 1 / oppositeDirection.magnitude;
@@ -77,13 +88,13 @@ namespace Assets.Improve_scripts.Scripts
         private void AlignmentBehaviour()
         {
             var boidsNearby = Physics2D.CircleCastAll(transform.position,
-                FlockCreator.alignmentDistance,
+                FlockCreator.AlignmentRadius,
                 Vector2.zero);
             
             Vector2 resultantVector = Vector2.zero;
             foreach(var boid  in boidsNearby)
             {
-                if (boid.collider == collider) continue; //make sure it does not reference the current boid
+                if (boid.collider == boidCollider) continue; //make sure it does not reference the current boid
                 if (boid.collider.TryGetComponent<Boid>(out var boidComponent))
                 {
                     if(boidComponent.FlockCreator != FlockCreator) continue; //make sure it is the correct boid
@@ -92,8 +103,6 @@ namespace Assets.Improve_scripts.Scripts
             }
             TargetDirection = resultantVector * FlockCreator.WEIGHT_ALIGNMENT;
             //afterwards (use the magnitude of the target direction as speed)
-            
-            
         }
 
         private void CohesionBehaviour()
@@ -121,6 +130,54 @@ namespace Assets.Improve_scripts.Scripts
             TargetDirection.Normalize(); 
         }
 
+
+        private void CheckIfOutOfBound()
+        {
+            if (FlockCreator.BounceWall)
+            {
+                //do something here!
+            }
+            else
+            {
+                TeleportBoid();
+            }
+        }
+
+        private void TeleportBoid()
+        {
+            Vector2 pos = transform.position;
+            Bounds boxBound = FlocksController.Instance.BoxCollider2D.bounds;
+
+            if (pos.x > boxBound.max.x)
+            {
+                //teleport boid to the left side of the map
+                pos.x = boxBound.min.x;
+            }
+            else if (pos.x < boxBound.min.x)
+            {
+                //teleport boid to the right side of the map
+                pos.x = boxBound.max.x;
+            }
+
+            if (pos.y > boxBound.max.y)
+            {
+                //teleport boid to the bottom of the map
+                pos.y = boxBound.min.y;
+            }
+            else if (pos.y < boxBound.min.y)
+            {
+                //teleport boid to the top of the map
+                pos.y = boxBound.max.y;
+            }
+            
+            transform.position = pos;
+        }
+
+        //private void BounceBoid()
+        //{
+
+        //}
+        
         /*
          what to do
         1. cant use the find vector then move according to the vector

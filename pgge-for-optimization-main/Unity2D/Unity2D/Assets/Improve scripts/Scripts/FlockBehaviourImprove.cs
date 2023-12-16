@@ -518,7 +518,6 @@ public class FlockBehaviourImprove : MonoBehaviour
     {
         for (int i = 0; i < autonomousList.Count; ++i)
         {
-            Vector3 pos = autonomousList[i].transform.position;
             //reduce extern call
             Transform currentTransform = autonomousList[i].transform;
             Bounds boxBound = Bounds.bounds;

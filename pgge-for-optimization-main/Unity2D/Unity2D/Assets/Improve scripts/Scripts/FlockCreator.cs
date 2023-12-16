@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.InteropServices.WindowsRuntime;
 using UnityEngine;
 
 namespace Assets.Improve_scripts.Scripts
@@ -12,11 +13,11 @@ namespace Assets.Improve_scripts.Scripts
         [Space(10)]
         [Header("A flock is a group of Automous objects.")]
         public string name = "Default Name";
-        public int numBoids = 10;
         public bool isPredator = false;
         public Color colour = new Color(1.0f, 1.0f, 1.0f);
         public float maxSpeed = 20.0f;
         public float maxRotationSpeed = 200.0f;
+        public int numberOfBoids { get { return boids.Count; } }
         [Space(10)]
         #endregion
 
@@ -49,19 +50,28 @@ namespace Assets.Improve_scripts.Scripts
         public float WEIGHT_AVOID_OBSTICLES = 10.0f;
         #endregion
 
-        #region properties
         [Space(10)]
         [Header("Properties")]
-        public float separationDistance = 5.0f;
-        public float alignmentDistance = 20.0f;
-        public float enemySeparationDistance = 5.0f;
-        public float visibility = 20.0f;
-        public bool bounceWall = true;
-        
-        public Vector3 CohesionPoint = Vector3.zero;
+        #region properties
+        [SerializeField] private float seperationRadius;
+        public float SeparationRadius { get { return seperationRadius; } }
+
+        [SerializeField] private float alignmentRadius;
+        public float AlignmentRadius { get { return alignmentRadius; } }
+
+        [SerializeField] private float enemySeperationDistance;
+        public float EnemySeparationDistance { get { return enemySeperationDistance; } }
+
+        [SerializeField] private float visibility;
+        public float Visibility { get { return visibility; } }
+
+        [SerializeField] private bool bounceWall;
+        public bool BounceWall { get { return bounceWall; } }
+
+        public Vector3 CohesionPoint { get; private set; }
+        //to know where the flock should combine in the end
         #endregion
 
-        [HideInInspector]
         private List<Boid> boids;
         
         //check do cohesion as well as spawning of boids
@@ -74,13 +84,14 @@ namespace Assets.Improve_scripts.Scripts
         private void Update()
         {
             FindCohesion();
+            ListenToAddBoidsInput();
         }
 
         private void ListenToAddBoidsInput()
         {
             if(Input.GetKeyUp(KeyCode.Space))
             {
-
+                AddBoids();
             }
         }
 
@@ -96,7 +107,13 @@ namespace Assets.Improve_scripts.Scripts
 
         private void AddBoids()
         {
-
+            for(int i = 0 ; i < FlocksController.Instance.numberOfBoidsToSpawn; i++)
+            {
+                GameObject boid = Instantiate(PrefabBoid, transform);
+                Boid component = boid.GetComponent<Boid>();
+                boids.Add(component);
+                component.Init(this);
+            }
         }
     }
 }
