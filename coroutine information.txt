@@ -14,3 +14,5 @@ three rules for boid
 - avoid crashing (seperation)
 - steer to move to the nearby boids (alighnment)
 - steer to the center of the boids (cohesion)
+
+Plan:

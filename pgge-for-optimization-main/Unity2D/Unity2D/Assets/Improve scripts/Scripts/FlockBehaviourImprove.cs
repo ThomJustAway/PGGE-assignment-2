@@ -48,7 +48,7 @@ public class FlockBehaviourImprove : MonoBehaviour
         //probably have to change this to something that runs
         //on the worker thread using burst compile plus job system
 
-        StartCoroutine(Coroutine_Flocking());
+        StartCoroutine(Coroutine_Cohesion_Seperation());
         StartCoroutine(Coroutine_Random());
         StartCoroutine(Coroutine_AvoidObstacles());
         StartCoroutine(Coroutine_SeparationWithEnemies());
@@ -142,7 +142,7 @@ public class FlockBehaviourImprove : MonoBehaviour
 
     #region coroutine
     //this function is big o of n^2 , n^3 if u consider the excute function
-    IEnumerator Coroutine_Flocking()
+    IEnumerator Coroutine_Cohesion_Seperation()
     {
         while (true)
         {
