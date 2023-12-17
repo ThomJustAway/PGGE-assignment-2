@@ -432,8 +432,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   textNumBoids: {fileID: 1944975884}
   textNumEnemies: {fileID: 1250291134}
-  flockBehaviour: {fileID: 875704704}
-  ImproveFlockBehaviour: {fileID: 875704706}
 --- !u!1 &123748669
 GameObject:
   m_ObjectHideFlags: 0
@@ -1389,7 +1387,7 @@ MonoBehaviour:
   TickDuration: 1
   TickDurationSeparationEnemy: 0.01
   TickDurationRandom: 1
-  BoidIncr: 100
+  BoidIncr: 1000
   useFlocking: 1
   BatchSize: 200
   flocks:

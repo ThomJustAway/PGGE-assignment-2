@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 389496565818785945}
   - component: {fileID: 196585206212527447}
   - component: {fileID: 2585807825668220973}
-  - component: {fileID: 2290119478923092853}
+  - component: {fileID: 3331704490395146538}
   m_Layer: 0
   m_Name: Boid 1
   m_TagString: Untagged
@@ -160,10 +160,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ebb5bde973b6b7d418a78cd65de1923c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  RotationSpeed: 0
   spriteRenderer: {fileID: 389496566669220658}
---- !u!61 &2290119478923092853
-BoxCollider2D:
+--- !u!58 &3331704490395146538
+CircleCollider2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -194,19 +193,9 @@ BoxCollider2D:
   m_IsTrigger: 0
   m_UsedByEffector: 0
   m_UsedByComposite: 0
-  m_Offset: {x: 0.029162407, y: -0.011664838}
-  m_SpriteTilingProperty:
-    border: {x: 0, y: 0, z: 0, w: 0}
-    pivot: {x: 0, y: 0}
-    oldSize: {x: 0, y: 0}
-    newSize: {x: 0, y: 0}
-    adaptiveTilingThreshold: 0
-    drawMode: 0
-    adaptiveTiling: 0
-  m_AutoTiling: 0
+  m_Offset: {x: -0.47, y: 0}
   serializedVersion: 2
-  m_Size: {x: 2.458109, y: 1.4665949}
-  m_EdgeRadius: 0
+  m_Radius: 0.7
 --- !u!1 &389496566669220668
 GameObject:
   m_ObjectHideFlags: 0

@@ -32,7 +32,7 @@ namespace Patterns
             if (s_instance == null)
             {
                 s_instance = this as T;
-                DontDestroyOnLoad(gameObject);
+                //DontDestroyOnLoad(gameObject);
             }
             else
             {

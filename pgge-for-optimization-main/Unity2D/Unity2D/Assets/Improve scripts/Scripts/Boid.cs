@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Linq;
+using UnityEditor;
 using UnityEngine;
 using static Unity.Collections.AllocatorManager;
 
@@ -45,7 +46,6 @@ namespace Assets.Improve_scripts.Scripts
         void Start()
         {
             boidCollider = GetComponent<Collider2D>();
-            Speed = 0.0f;
             SetRandomSpeed();
             SetRandomDirection();
         }
@@ -56,33 +56,49 @@ namespace Assets.Improve_scripts.Scripts
             CompleteBoidBehaviour();
             RotateGameObjectBasedOnTargetDirection();
             MoveBoid();
-
+            CheckIfOutOfBound();
             //check for collision
         }
 
+        #region behaviour
         //will return a vector2 that has the magnitude and the directional vector.
         private void SeperationBehaviour()
         {
             var ObjectsNearby = Physics2D.CircleCastAll(transform.position,
                 FlockCreator.SeparationRadius,
-                Vector2.zero);
-            Vector2 resultantVector = Vector2.zero;
+                Vector2.zero); //find the objects near the boid
 
-            Vector2 boidPosition = transform.position;  
+            Vector2 resultantDirection = Vector2.zero;
+            float speedOfRepulsion = 0f;
+            Vector2 boidPosition = transform.position;
+
+            int count = 0; //use this to find the average
             foreach(var hitPoint  in ObjectsNearby)
             {
                 if (hitPoint.collider == boidCollider) continue;
-                Vector2 oppositeDirection = boidPosition - hitPoint.point; 
+
+                Vector2 oppositeDirection = hitPoint.point - boidPosition; 
                 //the further away from boid to object, the lesser magnitude of repulsion
                 float magnitudeOfReplusion = 1 / oppositeDirection.magnitude;
-                resultantVector += oppositeDirection.normalized
-                    * magnitudeOfReplusion
-                    * FlockCreator.WEIGHT_SEPERATION;
+
+                resultantDirection += oppositeDirection.normalized;
+
+                speedOfRepulsion += magnitudeOfReplusion * FlockCreator.WEIGHT_SEPERATION;
+                count++;
                 //the resulting seperation will be added to the resultant vector of the boid
                 //the added vector is the direction of the vector that is scaled by the magnitude and the weight of seperation
             }
-            TargetDirection += (Vector3) resultantVector;
+            //find the average
+            if( count > 0 )
+            {
+                //find the average
+                speedOfRepulsion /= count;
+                resultantDirection.Normalize();
+            }
 
+            TargetDirection += (Vector3) resultantDirection * speedOfRepulsion * Speed;
+            
+            Debug.DrawRay(boidPosition, TargetDirection, Color.yellow);
         }
 
         private void AlignmentBehaviour()
@@ -107,7 +123,6 @@ namespace Assets.Improve_scripts.Scripts
 
         private void CohesionBehaviour()
         {
-            //a to b is b - a
             Vector3 resultantVector = transform.position - FlockCreator.CohesionPoint;
             TargetDirection += resultantVector * FlockCreator.WEIGHT_COHESION;
         }
@@ -126,11 +141,10 @@ namespace Assets.Improve_scripts.Scripts
             {
                 AlignmentBehaviour();
             }
-            TargetSpeed = TargetDirection.magnitude; //cant be negative
-            TargetDirection.Normalize(); 
         }
+        #endregion
 
-
+        #region collision prevent
         private void CheckIfOutOfBound()
         {
             if (FlockCreator.BounceWall)
@@ -172,12 +186,13 @@ namespace Assets.Improve_scripts.Scripts
             
             transform.position = pos;
         }
+        #endregion
 
         //private void BounceBoid()
         //{
 
         //}
-        
+
         /*
          what to do
         1. cant use the find vector then move according to the vector
@@ -188,6 +203,10 @@ namespace Assets.Improve_scripts.Scripts
         1. how to know which direction would be better for the boid?
         2. how to calculate the speed of the boid based on the seperation and alignment of the boid
          */
+
+        #region Move base on values
+
+        //This function will require target speed for the speed
         private void MoveBoid()
         {
             //add speed is for making the speed faster or slower depending
@@ -201,6 +220,7 @@ namespace Assets.Improve_scripts.Scripts
             transform.Translate(Vector3.right * Speed * Time.deltaTime, Space.Self);
         }
 
+        //this function will require target direction to move (will normalize the value)
         private void RotateGameObjectBasedOnTargetDirection()
         {
             Vector3 targetDirection = TargetDirection.normalized;
@@ -221,60 +241,26 @@ namespace Assets.Improve_scripts.Scripts
                 targetRotation,
                 RotationSpeed * Time.deltaTime); //give out the next rotation
         }
-
-        //private void SeperationMovement()
-        //{
-            
-        //}
-
-
-        //private IEnumerator Coroutine_LerpTargetSpeed(
-        //  float start,
-        //  float end,
-        //  float seconds = 2.0f)
-        //{
-        //  float elapsedTime = 0;
-        //  while (elapsedTime < seconds)
-        //  {
-        //    Speed = Mathf.Lerp(
-        //      start,
-        //      end,
-        //      (elapsedTime / seconds));
-        //    elapsedTime += Time.deltaTime;
-
-        //    yield return null;
-        //  }
-        //  Speed = end;
-        //}
-
-        //private IEnumerator Coroutine_LerpTargetSpeedCont(
-        //float seconds = 2.0f)
-        //{
-        //  float elapsedTime = 0;
-        //  while (elapsedTime < seconds)
-        //  {
-        //    Speed = Mathf.Lerp(
-        //      Speed,
-        //      TargetSpeed,
-        //      (elapsedTime / seconds));
-        //    elapsedTime += Time.deltaTime;
-
-        //    yield return null;
-        //  }
-        //  Speed = TargetSpeed;
-        //}
+        #endregion
 
         #region setup
-        static public Vector3 GetRandom(Vector3 min, Vector3 max)
+        private void OnDrawGizmosSelected()
         {
-            return new Vector3(
-                Random.Range(min.x, max.x),
-                Random.Range(min.y, max.y),
-                Random.Range(min.z, max.z));
+            Gizmos.color = Color.yellow;
+            //Gizmos.DrawSphere(transform.position, FlockCreator.SeparationRadius);
+            Gizmos.DrawRay(transform.position, TargetDirection.normalized);
         }
+        //static public Vector3 GetRandom(Vector3 min, Vector3 max)
+        //{
+        //    return new Vector3(
+        //        Random.Range(min.x, max.x),
+        //        Random.Range(min.y, max.y),
+        //        Random.Range(min.z, max.z));
+        //}
         void SetRandomSpeed()
         {
-            Speed = Random.Range(0.0f, MaxSpeed);
+            //Speed = Random.Range(0.0f, MaxSpeed);
+            Speed = 10f;
         }
 
         void SetRandomDirection()

@@ -72,14 +72,9 @@ namespace Assets.Improve_scripts.Scripts
         //to know where the flock should combine in the end
         #endregion
 
-        private List<Boid> boids;
+        private List<Boid> boids = new List<Boid>();
         
         //check do cohesion as well as spawning of boids
-
-        private void Start()
-        {
-            boids = new List<Boid>();
-        }
 
         private void Update()
         {

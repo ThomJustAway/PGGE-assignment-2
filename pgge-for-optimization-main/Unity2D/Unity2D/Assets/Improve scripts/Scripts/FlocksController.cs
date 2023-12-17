@@ -11,11 +11,11 @@ namespace Assets.Improve_scripts.Scripts
         public BoxCollider2D BoxCollider2D { get { return bound; } }
         [SerializeField] private int BoidsToSpawn = 100; 
         public int numberOfBoidsToSpawn { get { return BoidsToSpawn; } } 
-        [SerializeField] private FlockCreator[] flock;
+        [SerializeField] private FlockCreator[] flocks;
         public int numberOfBoidsCurrently { get
             {
                 int number = 0;
-                foreach (var f in flock)
+                foreach (var f in flocks)
                 {
                     number += f.numberOfBoids;
                 }
