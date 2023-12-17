@@ -68,12 +68,12 @@ namespace Assets.Improve_scripts.Scripts
         [SerializeField] private bool bounceWall;
         public bool BounceWall { get { return bounceWall; } }
 
-        public Vector3 CohesionPoint { get; private set; }
+        public Vector3 CohesionPoint { get; private set; } = Vector3.zero;
         //to know where the flock should combine in the end
         #endregion
 
         private List<Boid> boids = new List<Boid>();
-        
+
         //check do cohesion as well as spawning of boids
 
         private void Update()
@@ -93,11 +93,13 @@ namespace Assets.Improve_scripts.Scripts
         //might probably need to use unity job system here
         private void FindCohesion()
         {
+            if (boids.Count == 0) return;
             foreach(var boid in boids)
             {
                 CohesionPoint += boid.transform.position;
             }
             CohesionPoint /= boids.Count;
+            print($"cohesion point{CohesionPoint}");
         }
 
         private void AddBoids()
@@ -109,6 +111,12 @@ namespace Assets.Improve_scripts.Scripts
                 boids.Add(component);
                 component.Init(this);
             }
+        }
+
+        private void OnDrawGizmos()
+        {
+            Gizmos.color = Color.green;
+            Gizmos.DrawSphere(CohesionPoint, 2f);
         }
     }
 }

@@ -12,6 +12,7 @@ namespace Assets.Improve_scripts.Scripts
         [SerializeField] private int BoidsToSpawn = 100; 
         public int numberOfBoidsToSpawn { get { return BoidsToSpawn; } } 
         [SerializeField] private FlockCreator[] flocks;
+        
         public int numberOfBoidsCurrently { get
             {
                 int number = 0;

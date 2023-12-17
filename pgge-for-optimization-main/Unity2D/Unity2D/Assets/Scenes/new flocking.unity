@@ -1740,7 +1740,7 @@ MonoBehaviour:
   maxSpeed: 20
   maxRotationSpeed: 200
   useRandomRule: 0
-  useAlignmentRule: 0
+  useAlignmentRule: 1
   useCohesionRule: 0
   useSeparationRule: 1
   useFleeOnSightEnemyRule: 0

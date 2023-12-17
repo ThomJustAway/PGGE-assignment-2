@@ -96,7 +96,7 @@ namespace Assets.Improve_scripts.Scripts
                 resultantDirection.Normalize();
             }
 
-            TargetDirection += (Vector3)resultantDirection;
+            TargetDirection += (Vector3)resultantDirection * FlockCreator.WEIGHT_SEPERATION;
             TargetSpeed = Speed + speedOfRepulsion * Speed;
         }
 
@@ -106,23 +106,23 @@ namespace Assets.Improve_scripts.Scripts
                 FlockCreator.AlignmentRadius,
                 Vector2.zero);
             
-            Vector2 resultantVector = Vector2.zero;
+            Vector2 resultantDirection = Vector2.zero;
             foreach(var boid  in boidsNearby)
             {
                 if (boid.collider == boidCollider) continue; //make sure it does not reference the current boid
                 if (boid.collider.TryGetComponent<Boid>(out var boidComponent))
                 {
                     if(boidComponent.FlockCreator != FlockCreator) continue; //make sure it is the correct boid
-                    resultantVector += (Vector2)boidComponent.TargetDirection;
+                    resultantDirection += (Vector2)boidComponent.TargetDirection;
                 }
             }
-            TargetDirection = resultantVector * FlockCreator.WEIGHT_ALIGNMENT;
+            TargetDirection += (Vector3) (resultantDirection.normalized * FlockCreator.WEIGHT_ALIGNMENT);
             //afterwards (use the magnitude of the target direction as speed)
         }
 
         private void CohesionBehaviour()
         {
-            Vector3 resultantVector = transform.position - FlockCreator.CohesionPoint;
+            Vector3 resultantVector =  FlockCreator.CohesionPoint - transform.position;
             TargetDirection += resultantVector * FlockCreator.WEIGHT_COHESION;
         }
 
