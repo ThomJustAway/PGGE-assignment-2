@@ -77,7 +77,7 @@ namespace Assets.Improve_scripts.Scripts
             {
                 if (hitPoint.collider == boidCollider) continue;
 
-                Vector2 oppositeDirection = hitPoint.point - boidPosition; 
+                Vector2 oppositeDirection = boidPosition - hitPoint.point ; 
                 //the further away from boid to object, the lesser magnitude of repulsion
                 float magnitudeOfReplusion = 1 / oppositeDirection.magnitude;
 
@@ -96,9 +96,8 @@ namespace Assets.Improve_scripts.Scripts
                 resultantDirection.Normalize();
             }
 
-            TargetDirection += (Vector3) resultantDirection * speedOfRepulsion * Speed;
-            
-            Debug.DrawRay(boidPosition, TargetDirection, Color.yellow);
+            TargetDirection += (Vector3)resultantDirection;
+            TargetSpeed = Speed + speedOfRepulsion * Speed;
         }
 
         private void AlignmentBehaviour()
@@ -149,7 +148,7 @@ namespace Assets.Improve_scripts.Scripts
         {
             if (FlockCreator.BounceWall)
             {
-                //do something here!
+                BounceBoid();
             }
             else
             {
@@ -186,6 +185,39 @@ namespace Assets.Improve_scripts.Scripts
             
             transform.position = pos;
         }
+
+        private void BounceBoid()
+        {
+            //Vector2 newDirection = Vector2.zero;
+            Bounds boxBound = FlocksController.Instance.BoxCollider2D.bounds;
+            //for the x axis
+            Vector2 pos = transform.position;
+            Vector2 newTargetPosition = TargetDirection;
+
+            float padding = 5f;
+            if (pos.x > boxBound.max.x - padding)
+            {
+                //make sure the boids 
+                newTargetPosition.x = -1f;
+            }
+            else if (pos.x < boxBound.min.x + padding)
+            {
+                //teleport boid to the right side of the map
+                newTargetPosition.x = 1f;
+            }
+            //for the y axis
+            if (pos.y > boxBound.max.y - padding)
+            {
+                //teleport boid to the bottom of the map
+                newTargetPosition.y = -1f;
+            }
+            else if (pos.y < boxBound.min.y + padding)
+            {
+                //teleport boid to the top of the map
+                newTargetPosition.y = 1f;
+            }
+            TargetDirection = (Vector3)newTargetPosition;
+        }
         #endregion
 
         //private void BounceBoid()
@@ -212,7 +244,7 @@ namespace Assets.Improve_scripts.Scripts
             //add speed is for making the speed faster or slower depending
             //on the three behaviour
             float addSpeed = ((TargetSpeed - Speed) / 10.0f);
-            Speed = Speed + addSpeed *Time.deltaTime;
+            Speed = Speed + addSpeed * Time.deltaTime;
 
             if (Speed > MaxSpeed) //cap the next speed
                 Speed = MaxSpeed;
@@ -247,8 +279,19 @@ namespace Assets.Improve_scripts.Scripts
         private void OnDrawGizmosSelected()
         {
             Gizmos.color = Color.yellow;
+            var ObjectsNearby = Physics2D.CircleCastAll(transform.position,
+                FlockCreator.SeparationRadius,
+                Vector2.zero);
+            Gizmos.DrawWireSphere(transform.position, FlockCreator.SeparationRadius);
+            Gizmos.color = Color.red;
+            foreach(var boid  in ObjectsNearby)
+            {
+                Gizmos.DrawLine(transform.position, boid.transform.position);
+            }
+            Gizmos.color = Color.white;
+            Gizmos.DrawLine(transform.position, transform.position + TargetDirection.normalized);
             //Gizmos.DrawSphere(transform.position, FlockCreator.SeparationRadius);
-            Gizmos.DrawRay(transform.position, TargetDirection.normalized);
+            //Gizmos.DrawRay(transform.position, TargetDirection.normalized);
         }
         //static public Vector3 GetRandom(Vector3 min, Vector3 max)
         //{

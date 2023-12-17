@@ -237,7 +237,6 @@ public class FlockBehaviourImprove : MonoBehaviour
         //code below is redundant as separation count is always 0
         //could open it again if u want to add separation count to the game
         if (separationCount > 0) { 
-            print("hello");
             separationSpeed = separationSpeed / count;
             separationDir = separationDir / separationSpeed;
             separationDir.Normalize();
@@ -267,7 +266,7 @@ public class FlockBehaviourImprove : MonoBehaviour
          */
 
 
-        curr.TargetDirection = alignmentDirection + 
+        curr.TargetDirection += alignmentDirection + 
             separationDirection + 
             flockDirection;
         //add this together to form the final direction needed for the flock.

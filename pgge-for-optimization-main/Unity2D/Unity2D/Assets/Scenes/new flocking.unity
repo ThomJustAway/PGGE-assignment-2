@@ -1011,7 +1011,7 @@ GameObject:
   - component: {fileID: 735960363}
   - component: {fileID: 735960362}
   - component: {fileID: 735960364}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: Square
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1755,7 +1755,7 @@ MonoBehaviour:
   alignmentRadius: 5
   enemySeperationDistance: 0
   visibility: 0
-  bounceWall: 0
+  bounceWall: 1
 --- !u!4 &1195683932
 Transform:
   m_ObjectHideFlags: 0
@@ -2161,7 +2161,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bound: {fileID: 735960364}
-  BoidsToSpawn: 100
+  BoidsToSpawn: 1000
   flocks:
   - {fileID: 1195683931}
 --- !u!4 &1848544144

@@ -22,6 +22,12 @@ namespace Assets.Improve_scripts.Scripts
                 return number;
             } }
         #endregion
-        
+
+        private void OnDrawGizmos()
+        {
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawWireCube(BoxCollider2D.transform.position,
+                BoxCollider2D.size);
+        }
     }
 }
