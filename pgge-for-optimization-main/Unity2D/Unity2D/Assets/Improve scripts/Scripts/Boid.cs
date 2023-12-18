@@ -53,10 +53,11 @@ namespace Assets.Improve_scripts.Scripts
         public void Update()
         {
             //completete movement
-            CompleteBoidBehaviour();
+            //CompleteBoidBehaviour();
+            MoveBoidToNewPosition();
+            CheckIfOutOfBound();
             RotateGameObjectBasedOnTargetDirection();
             MoveBoid();
-            CheckIfOutOfBound();
             //check for collision
         }
 
@@ -122,7 +123,7 @@ namespace Assets.Improve_scripts.Scripts
 
         private void CohesionBehaviour()
         {
-            Vector3 resultantVector =  FlockCreator.CohesionPoint - transform.position;
+            Vector3 resultantVector =  FlockCreator.TotalCohesionPoint - transform.position;
             TargetDirection += resultantVector * FlockCreator.WEIGHT_COHESION;
         }
 
@@ -220,11 +221,6 @@ namespace Assets.Improve_scripts.Scripts
         }
         #endregion
 
-        //private void BounceBoid()
-        //{
-
-        //}
-
         /*
          what to do
         1. cant use the find vector then move according to the vector
@@ -319,6 +315,64 @@ namespace Assets.Improve_scripts.Scripts
         {
             spriteRenderer.color = c;
         }
+        #endregion
+
+        #region tryout
+
+        public Vector2 velocity { get; private set; } = Vector2.zero;
+
+        private void MoveBoidToNewPosition()
+        {
+            Vector2 FinalVelocity = Vector2.zero;
+            if(FlockCreator.useSeparationRule) FinalVelocity += SeperationRule() * FlockCreator.WEIGHT_SEPERATION;
+            if(FlockCreator.useCohesionRule) FinalVelocity += CohesionRule() * FlockCreator.WEIGHT_COHESION;
+            if(FlockCreator.useAlignmentRule) FinalVelocity += AlignmentRule() * FlockCreator.WEIGHT_ALIGNMENT;
+
+            velocity = FinalVelocity;
+
+            //transform.position += (Vector3) velocity;
+            TargetDirection = velocity.normalized;
+            TargetSpeed = velocity.magnitude;
+        }
+
+        private Vector2 SeperationRule()
+        {
+            var ObjectsNearby = Physics2D.CircleCastAll(transform.position,
+                FlockCreator.SeparationRadius,
+                Vector2.zero); //find the objects near the boid
+
+            Vector2 boidPosition = transform.position;
+            Vector2 resultantVelocity = Vector2.zero;
+
+            foreach (var hitPoint in ObjectsNearby)
+            {
+                if (hitPoint.collider == boidCollider) continue;
+
+                Vector2 oppositeDirection = boidPosition - hitPoint.point;
+                //the further away from boid to object, the lesser magnitude of repulsion
+
+                resultantVelocity += oppositeDirection;
+            }
+            return resultantVelocity;
+        }
+
+        private Vector2 CohesionRule()
+        {
+            Vector2 position = transform.position;
+            Vector2 avgCohesionPoint = ( (Vector2)FlockCreator.TotalCohesionPoint - position) / FlockCreator.numberOfBoids;
+            Vector2 velocity = avgCohesionPoint - position;
+            return velocity / 100; 
+            //scale the velocity by a 1% so that it's influence is not that strong
+        }
+
+        private Vector2 AlignmentRule()
+        {
+            var averageVelocity = (FlockCreator.TotalSumBoidsVelocity - velocity) / 
+                (FlockCreator.numberOfBoids - 1);
+
+            return averageVelocity / 8; // reduce the amount of alignment
+        }
+
         #endregion
     }
 }

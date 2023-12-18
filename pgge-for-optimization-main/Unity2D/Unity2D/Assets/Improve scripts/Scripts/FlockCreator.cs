@@ -36,13 +36,13 @@ namespace Assets.Improve_scripts.Scripts
         #region weight
         [Header("Rule Weights")]
         //use cap case to know that this is a constant
-        [Range(0.0f, 10.0f)]
+        [Range(0.0f, 1.0f)]
         public float WEIGHT_RANDOM = 1.0f;
-        [Range(0.0f, 10.0f)]
+        [Range(0.0f, 1.0f)]
         public float WEIGHT_ALIGNMENT = 2.0f;
-        [Range(0.0f, 10.0f)]
+        [Range(0.0f, 1.0f)]
         public float WEIGHT_COHESION = 3.0f;
-        [Range(0.0f, 10.0f)]
+        [Range(0.0f, 1.0f)]
         public float WEIGHT_SEPERATION = 8.0f;
         [Range(0.0f, 50.0f)]
         public float WEIGHT_FLEE_ENEMY_ON_SIGHT = 50.0f;
@@ -68,7 +68,9 @@ namespace Assets.Improve_scripts.Scripts
         [SerializeField] private bool bounceWall;
         public bool BounceWall { get { return bounceWall; } }
 
-        public Vector3 CohesionPoint { get; private set; } = Vector3.zero;
+        public Vector3 TotalCohesionPoint { get; private set; } = Vector3.zero;
+
+        public Vector2 TotalSumBoidsVelocity { get; private set; } = Vector2.zero;
         //to know where the flock should combine in the end
         #endregion
 
@@ -78,7 +80,7 @@ namespace Assets.Improve_scripts.Scripts
 
         private void Update()
         {
-            FindCohesion();
+            FindCohesionAndSumOfVelocity();
             ListenToAddBoidsInput();
         }
 
@@ -91,16 +93,21 @@ namespace Assets.Improve_scripts.Scripts
         }
 
         //might probably need to use unity job system here
-        private void FindCohesion()
+        private void FindCohesionAndSumOfVelocity()
         {
+            Vector3 newCohesionPoint = Vector3.zero;
+            Vector2 newTotalVelocity = Vector2.zero;
             if (boids.Count == 0) return;
             foreach(var boid in boids)
             {
-                CohesionPoint += boid.transform.position;
+                newCohesionPoint += boid.transform.position;
+                newTotalVelocity +=  boid.velocity;
             }
-            CohesionPoint /= boids.Count;
-            print($"cohesion point{CohesionPoint}");
+            //replacing the values
+            TotalCohesionPoint = newCohesionPoint;
+            TotalSumBoidsVelocity = newTotalVelocity;
         }
+
 
         private void AddBoids()
         {
@@ -116,7 +123,7 @@ namespace Assets.Improve_scripts.Scripts
         private void OnDrawGizmos()
         {
             Gizmos.color = Color.green;
-            Gizmos.DrawSphere(CohesionPoint, 2f);
+            Gizmos.DrawSphere(TotalCohesionPoint, 2f);
         }
     }
 }
