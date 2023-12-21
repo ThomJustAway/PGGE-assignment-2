@@ -1,5 +1,10 @@
-﻿using System.Collections;
+﻿using Assets.Improve_scripts.Jobs;
+using System;
+using System.Collections;
 using System.Linq;
+using System.Security.Cryptography;
+using Unity.Collections;
+using Unity.Jobs;
 using UnityEditor;
 using UnityEngine;
 using static Unity.Collections.AllocatorManager;
@@ -18,15 +23,23 @@ namespace Assets.Improve_scripts.Scripts
         /*targe direction is set by the flock behaviour 
          * used to determine where the boid/ obstacles will move
         */
-        private float RotationSpeed = 0.0f;
+        private float RotationSpeed;
 
         public SpriteRenderer spriteRenderer;
 
         public FlockCreator FlockCreator { get; private set; }
 
-        private Collider2D boidCollider;
+        public Vector2 velocity { get; private set; } = Vector2.zero;
+
+        //private Vector2 seperationVelocity = Vector2.zero;
+        //private Vector2 cohesionVelocity = Vector2.zero;
+        //private Vector2 AlignmentVelocity = Vector2.zero;
 
         //to do write two function for seperation and alighnment
+
+        //for job system
+        JobHandle jobRule;
+        NativeArray<Vector3> result;
 
         public void Init(FlockCreator creator)
         {
@@ -38,112 +51,51 @@ namespace Assets.Improve_scripts.Scripts
             var bounds = FlocksController.Instance.BoxCollider2D.bounds;
 
             //setting up the position of the boids
-            float x = Random.Range(bounds.min.x, bounds.max.x);
-            float y = Random.Range(bounds.min.y, bounds.max.y);
+            float x = UnityEngine.Random.Range(bounds.min.x, bounds.max.x);
+            float y = UnityEngine.Random.Range(bounds.min.y, bounds.max.y);
             transform.position = new Vector2(x, y);
         }
 
         void Start()
         {
-            boidCollider = GetComponent<Collider2D>();
             SetRandomSpeed();
-            SetRandomDirection();
+            SetRandomVelocity();
         }
 
+
+
+        
         public void Update()
         {
             //completete movement
             //CompleteBoidBehaviour();
-            MoveBoidToNewPosition();
-            CheckIfOutOfBound();
+            //MoveBoidToNewPosition();
+            HandleRuleJob();
             RotateGameObjectBasedOnTargetDirection();
             MoveBoid();
             //check for collision
         }
 
-        #region behaviour
-        //will return a vector2 that has the magnitude and the directional vector.
-        private void SeperationBehaviour()
+        public void LateUpdate()
         {
-            var ObjectsNearby = Physics2D.CircleCastAll(transform.position,
-                FlockCreator.SeparationRadius,
-                Vector2.zero); //find the objects near the boid
-
-            Vector2 resultantDirection = Vector2.zero;
-            float speedOfRepulsion = 0f;
-            Vector2 boidPosition = transform.position;
-
-            int count = 0; //use this to find the average
-            foreach(var hitPoint  in ObjectsNearby)
-            {
-                if (hitPoint.collider == boidCollider) continue;
-
-                Vector2 oppositeDirection = boidPosition - hitPoint.point ; 
-                //the further away from boid to object, the lesser magnitude of repulsion
-                float magnitudeOfReplusion = 1 / oppositeDirection.magnitude;
-
-                resultantDirection += oppositeDirection.normalized;
-
-                speedOfRepulsion += magnitudeOfReplusion * FlockCreator.WEIGHT_SEPERATION;
-                count++;
-                //the resulting seperation will be added to the resultant vector of the boid
-                //the added vector is the direction of the vector that is scaled by the magnitude and the weight of seperation
-            }
-            //find the average
-            if( count > 0 )
-            {
-                //find the average
-                speedOfRepulsion /= count;
-                resultantDirection.Normalize();
-            }
-
-            TargetDirection += (Vector3)resultantDirection * FlockCreator.WEIGHT_SEPERATION;
-            TargetSpeed = Speed + speedOfRepulsion * Speed;
+            jobRule.Complete();
+            //calculate velocity here!
+            var foundVelocity = result[0];
+            result.Dispose();
+            print(foundVelocity);
         }
 
-        private void AlignmentBehaviour()
+        private void HandleRuleJob()
         {
-            var boidsNearby = Physics2D.CircleCastAll(transform.position,
-                FlockCreator.AlignmentRadius,
-                Vector2.zero);
-            
-            Vector2 resultantDirection = Vector2.zero;
-            foreach(var boid  in boidsNearby)
+            var newJob = new BoidRules()
             {
-                if (boid.collider == boidCollider) continue; //make sure it does not reference the current boid
-                if (boid.collider.TryGetComponent<Boid>(out var boidComponent))
-                {
-                    if(boidComponent.FlockCreator != FlockCreator) continue; //make sure it is the correct boid
-                    resultantDirection += (Vector2)boidComponent.TargetDirection;
-                }
-            }
-            TargetDirection += (Vector3) (resultantDirection.normalized * FlockCreator.WEIGHT_ALIGNMENT);
-            //afterwards (use the magnitude of the target direction as speed)
+                thisBoidData = new BoidData(transform.position, velocity),
+                data = FlockCreator.DataForJobRule,
+                result = new NativeArray<Vector3>(1, Allocator.TempJob)
+            };
+            jobRule = newJob.Schedule();
         }
-
-        private void CohesionBehaviour()
-        {
-            Vector3 resultantVector =  FlockCreator.TotalCohesionPoint - transform.position;
-            TargetDirection += resultantVector * FlockCreator.WEIGHT_COHESION;
-        }
-
-        private void CompleteBoidBehaviour()
-        {
-            if (FlockCreator.useSeparationRule)
-            {
-                SeperationBehaviour();
-            }
-            if (FlockCreator.useCohesionRule)
-            {
-                CohesionBehaviour();
-            }
-            if(FlockCreator.useAlignmentRule)
-            {
-                AlignmentBehaviour();
-            }
-        }
-        #endregion
-
+        
         #region collision prevent
         private void CheckIfOutOfBound()
         {
@@ -187,50 +139,39 @@ namespace Assets.Improve_scripts.Scripts
             transform.position = pos;
         }
 
-        private void BounceBoid()
+        private void BounceBoid() //This problem can be trace back here!
         {
             //Vector2 newDirection = Vector2.zero;
             Bounds boxBound = FlocksController.Instance.BoxCollider2D.bounds;
             //for the x axis
             Vector2 pos = transform.position;
-            Vector2 newTargetPosition = TargetDirection;
+            Vector2 newTargetVelocity = velocity;
 
-            float padding = 5f;
+            float padding = 0f;
             if (pos.x > boxBound.max.x - padding)
             {
                 //make sure the boids 
-                newTargetPosition.x = -1f;
+                newTargetVelocity.x = -1f;
             }
             else if (pos.x < boxBound.min.x + padding)
             {
                 //teleport boid to the right side of the map
-                newTargetPosition.x = 1f;
+                newTargetVelocity.x = 1f;
             }
             //for the y axis
             if (pos.y > boxBound.max.y - padding)
             {
                 //teleport boid to the bottom of the map
-                newTargetPosition.y = -1f;
+                newTargetVelocity.y = -1f;
             }
             else if (pos.y < boxBound.min.y + padding)
             {
                 //teleport boid to the top of the map
-                newTargetPosition.y = 1f;
+                newTargetVelocity.y = 1f;
             }
-            TargetDirection = (Vector3)newTargetPosition;
+            velocity = (Vector3)newTargetVelocity;
         }
         #endregion
-
-        /*
-         what to do
-        1. cant use the find vector then move according to the vector
-        2. find the target direction for rotation
-        3. add the speed accordingly
-        
-        problem so far:
-        1. how to know which direction would be better for the boid?
-        2. how to calculate the speed of the boid based on the seperation and alignment of the boid
-         */
 
         #region Move base on values
 
@@ -239,13 +180,20 @@ namespace Assets.Improve_scripts.Scripts
         {
             //add speed is for making the speed faster or slower depending
             //on the three behaviour
-            float addSpeed = ((TargetSpeed - Speed) / 10.0f);
-            Speed = Speed + addSpeed * Time.deltaTime;
 
-            if (Speed > MaxSpeed) //cap the next speed
-                Speed = MaxSpeed;
+            //uncomment this out later on after fixing certain parts of the boid
+            //boids will move at a constant speed
 
-            transform.Translate(Vector3.right * Speed * Time.deltaTime, Space.Self);
+            //float addSpeed = ((TargetSpeed - Speed) / 10.0f);
+            //Speed = Speed + addSpeed * Time.deltaTime;
+
+            //if (Speed > MaxSpeed) //cap the next speed
+            //    Speed = MaxSpeed;
+
+            transform.Translate(Vector3.right * Speed * Time.deltaTime , Space.Self);
+            //the logic behind this code is because the sprite is 
+            //on the vector3.right, the forward is the local rotation on the right. 
+            //so it will act as if it is going forward, but dont worry about this line of code
         }
 
         //this function will require target direction to move (will normalize the value)
@@ -275,64 +223,72 @@ namespace Assets.Improve_scripts.Scripts
         private void OnDrawGizmosSelected()
         {
             Gizmos.color = Color.yellow;
-            var ObjectsNearby = Physics2D.CircleCastAll(transform.position,
+            Vector3 boidTransform = transform.position;
+            var ObjectsNearby = Physics2D.CircleCastAll(boidTransform,
                 FlockCreator.SeparationRadius,
                 Vector2.zero);
-            Gizmos.DrawWireSphere(transform.position, FlockCreator.SeparationRadius);
+            Gizmos.DrawWireSphere(boidTransform, FlockCreator.SeparationRadius);
+            Gizmos.color = Color.gray;
+            Gizmos.DrawWireSphere(boidTransform, FlockCreator.AlignmentRadius);
             Gizmos.color = Color.red;
             foreach(var boid  in ObjectsNearby)
             {
-                Gizmos.DrawLine(transform.position, boid.transform.position);
+                Gizmos.DrawLine(boidTransform, boid.transform.position);
             }
             Gizmos.color = Color.white;
-            Gizmos.DrawLine(transform.position, transform.position + TargetDirection.normalized);
-            //Gizmos.DrawSphere(transform.position, FlockCreator.SeparationRadius);
-            //Gizmos.DrawRay(transform.position, TargetDirection.normalized);
+            Gizmos.DrawRay(boidTransform, TargetDirection);
+
+            //Debug.DrawRay(boidTransform + new Vector3(0.5f, 0.5f,0), seperationVelocity, Color.blue);
+
+            //Debug.DrawRay(boidTransform + new Vector3(0.5f, -0.5f, 0), AlignmentVelocity, Color.black);
+
+            //Debug.DrawRay(boidTransform + new Vector3(-0.5f, -0.5f, 0), cohesionVelocity, Color.green);
+
+            print( $"Velocity altogether {velocity} \n" +
+                $"velocity normalise {velocity.normalized}\n" +
+                $"Target direction {TargetDirection} \n" +
+                $"Target speed {Speed}");
+
         }
-        //static public Vector3 GetRandom(Vector3 min, Vector3 max)
-        //{
-        //    return new Vector3(
-        //        Random.Range(min.x, max.x),
-        //        Random.Range(min.y, max.y),
-        //        Random.Range(min.z, max.z));
-        //}
+
+        void SetRandomVelocity()
+        {
+            float x = UnityEngine.Random.Range(-5f,5f);
+            float y = UnityEngine.Random.Range(-5f, 5f);
+            velocity = new Vector2(x, y);
+        }
+
         void SetRandomSpeed()
         {
-            //Speed = Random.Range(0.0f, MaxSpeed);
-            Speed = 10f;
-        }
-
-        void SetRandomDirection()
-        {
-            float angle = Random.Range(-180.0f, 180.0f);
-            //making sure the boid are facing at any angle
-            Vector2 dir = new Vector2(Mathf.Cos(Mathf.Deg2Rad * angle), Mathf.Sin(Mathf.Deg2Rad * angle));
-            dir.Normalize();
-            TargetDirection = dir;
-        }
-
-        public void SetColor(Color c)
-        {
-            spriteRenderer.color = c;
+            Speed = UnityEngine.Random.Range(5,20f);
         }
         #endregion
 
-        #region tryout
-
-        public Vector2 velocity { get; private set; } = Vector2.zero;
+        /*
+        #region Rules
 
         private void MoveBoidToNewPosition()
         {
-            Vector2 FinalVelocity = Vector2.zero;
-            if(FlockCreator.useSeparationRule) FinalVelocity += SeperationRule() * FlockCreator.WEIGHT_SEPERATION;
-            if(FlockCreator.useCohesionRule) FinalVelocity += CohesionRule() * FlockCreator.WEIGHT_COHESION;
-            if(FlockCreator.useAlignmentRule) FinalVelocity += AlignmentRule() * FlockCreator.WEIGHT_ALIGNMENT;
+            //Vector2 FinalVelocity = Vector2.zero;
+            //velocity = Vector2.zero;
+            seperationVelocity = Vector2.zero;
+            cohesionVelocity = Vector2.zero;
+            AlignmentVelocity = Vector2.zero;
 
-            velocity = FinalVelocity;
+            if(FlockCreator.useSeparationRule) seperationVelocity = SeperationRule() * FlockCreator.WEIGHT_SEPERATION;
+            if(FlockCreator.useCohesionRule) cohesionVelocity = CohesionRule() * FlockCreator.WEIGHT_COHESION;
+            if(FlockCreator.useAlignmentRule) AlignmentVelocity  = AlignmentRule() * FlockCreator.WEIGHT_ALIGNMENT;
 
-            //transform.position += (Vector3) velocity;
+            Vector2 totalSumOfVelocity = seperationVelocity + AlignmentVelocity + cohesionVelocity;
+
+            if (velocity == Vector2.zero) SetRandomVelocity();
+            if (totalSumOfVelocity != Vector2.zero) velocity += totalSumOfVelocity; 
+
+            CheckIfOutOfBound(); //if bounce then this will work
+            //the bound velocity will take priorty then the other rules
+
             TargetDirection = velocity.normalized;
-            TargetSpeed = velocity.magnitude;
+            TargetSpeed = velocity.magnitude * FlockCreator.WEIGHT_SPEED;
         }
 
         private Vector2 SeperationRule()
@@ -347,32 +303,49 @@ namespace Assets.Improve_scripts.Scripts
             foreach (var hitPoint in ObjectsNearby)
             {
                 if (hitPoint.collider == boidCollider) continue;
-
                 Vector2 oppositeDirection = boidPosition - hitPoint.point;
                 //the further away from boid to object, the lesser magnitude of repulsion
-
                 resultantVelocity += oppositeDirection;
             }
+
             return resultantVelocity;
         }
 
         private Vector2 CohesionRule()
         {
             Vector2 position = transform.position;
-            Vector2 avgCohesionPoint = ( (Vector2)FlockCreator.TotalCohesionPoint - position) / FlockCreator.numberOfBoids;
+            Vector2 avgCohesionPoint = ( (Vector2)FlockCreator.TotalCohesionPoint - position) / 
+                (FlockCreator.numberOfBoids - 1);
             Vector2 velocity = avgCohesionPoint - position;
-            return velocity / 100; 
-            //scale the velocity by a 1% so that it's influence is not that strong
+            return velocity.normalized; 
         }
 
         private Vector2 AlignmentRule()
         {
-            var averageVelocity = (FlockCreator.TotalSumBoidsVelocity - velocity) / 
-                (FlockCreator.numberOfBoids - 1);
+            var boidsNearby = Physics2D.CircleCastAll(transform.position,
+               FlockCreator.AlignmentRadius,
+               Vector2.zero);
 
-            return averageVelocity / 8; // reduce the amount of alignment
+            Vector2 resultantDirection = Vector2.zero;
+            foreach (var boid in boidsNearby)
+            {
+                if (boid.collider == boidCollider) continue; //make sure it does not reference the current boid
+                if (boid.collider.TryGetComponent<Boid>(out var boidComponent))
+                {
+                    if (boidComponent.FlockCreator != FlockCreator) continue; //make sure it is the correct boid
+                    resultantDirection += (Vector2)boidComponent.velocity.normalized;
+                }
+            }
+            if( resultantDirection != Vector2.zero )
+            {//that mean that there are boids nearby so the number of boid is n - 1.
+                resultantDirection /= boidsNearby.Length - 1;
+            }
+            //because the effect can be quite powerful so divide by 10 to reduce it
+            return resultantDirection ;
+            
         }
 
         #endregion
+        */
     }
 }

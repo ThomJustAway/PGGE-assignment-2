@@ -1,6 +1,8 @@
-﻿using System.Collections;
+﻿using Assets.Improve_scripts.Jobs;
+using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices.WindowsRuntime;
+using Unity.Collections;
 using UnityEngine;
 
 namespace Assets.Improve_scripts.Scripts
@@ -39,15 +41,16 @@ namespace Assets.Improve_scripts.Scripts
         [Range(0.0f, 1.0f)]
         public float WEIGHT_RANDOM = 1.0f;
         [Range(0.0f, 1.0f)]
-        public float WEIGHT_ALIGNMENT = 2.0f;
+        public float WEIGHT_ALIGNMENT;
         [Range(0.0f, 1.0f)]
-        public float WEIGHT_COHESION = 3.0f;
+        public float WEIGHT_COHESION;
         [Range(0.0f, 1.0f)]
-        public float WEIGHT_SEPERATION = 8.0f;
+        public float WEIGHT_SEPERATION;
         [Range(0.0f, 50.0f)]
         public float WEIGHT_FLEE_ENEMY_ON_SIGHT = 50.0f;
         [Range(0.0f, 50.0f)]
         public float WEIGHT_AVOID_OBSTICLES = 10.0f;
+        public float WEIGHT_SPEED = 1.0f;
         #endregion
 
         [Space(10)]
@@ -62,26 +65,64 @@ namespace Assets.Improve_scripts.Scripts
         [SerializeField] private float enemySeperationDistance;
         public float EnemySeparationDistance { get { return enemySeperationDistance; } }
 
-        [SerializeField] private float visibility;
-        public float Visibility { get { return visibility; } }
+        //[SerializeField] private float visibility;
+        //public float Visibility { get { return visibility; } }
 
         [SerializeField] private bool bounceWall;
         public bool BounceWall { get { return bounceWall; } }
 
         public Vector3 TotalCohesionPoint { get; private set; } = Vector3.zero;
 
-        public Vector2 TotalSumBoidsVelocity { get; private set; } = Vector2.zero;
+        //public Vector2 TotalSumBoidsVelocity { get; private set; } = Vector2.zero;
         //to know where the flock should combine in the end
         #endregion
 
         private List<Boid> boids = new List<Boid>();
-
+        private DataForJobRule dataForJobRule;
+        public DataForJobRule DataForJobRule { get { return dataForJobRule; } }
         //check do cohesion as well as spawning of boids
+
+        private void Start()
+        {
+            UpdateJobRule();
+        }
 
         private void Update()
         {
-            FindCohesionAndSumOfVelocity();
+            UpdateJobRule();
+            FindCohesionPoint();
             ListenToAddBoidsInput();
+        }
+
+        private void UpdateJobRule()
+        {
+            //release the memory
+            if(dataForJobRule.otherBoids != null &&
+                dataForJobRule.otherBoids.IsCreated
+                ) dataForJobRule.otherBoids.Dispose();
+
+            //for alignment
+            dataForJobRule.SeparationRadius = seperationRadius;
+            dataForJobRule.cohesionPoint = TotalCohesionPoint;
+            dataForJobRule.AlignmentRadius = alignmentRadius;
+
+            //for rules
+            dataForJobRule.useCohesionRule = useCohesionRule;
+            dataForJobRule.useAlignmentRule = useAlignmentRule;
+            dataForJobRule.useSeparationRule = useSeparationRule;
+
+            //for weights
+            dataForJobRule.WEIGHT_ALIGNMENT = WEIGHT_ALIGNMENT;
+            dataForJobRule.WEIGHT_COHESION = WEIGHT_COHESION;
+            dataForJobRule.WEIGHT_SEPERATION = WEIGHT_SEPERATION;
+
+            NativeArray<BoidData> boidDatas = new NativeArray<BoidData>(boids.Count , Allocator.TempJob);
+
+            for(int i = 0; i < boidDatas.Length; i++)
+            {
+                boidDatas[i] = new BoidData(boids[i].transform.position, boids[i].velocity);
+            }
+            //try temp job first bah
         }
 
         private void ListenToAddBoidsInput()
@@ -93,21 +134,17 @@ namespace Assets.Improve_scripts.Scripts
         }
 
         //might probably need to use unity job system here
-        private void FindCohesionAndSumOfVelocity()
+        private void FindCohesionPoint()
         {
             Vector3 newCohesionPoint = Vector3.zero;
-            Vector2 newTotalVelocity = Vector2.zero;
             if (boids.Count == 0) return;
             foreach(var boid in boids)
             {
                 newCohesionPoint += boid.transform.position;
-                newTotalVelocity +=  boid.velocity;
             }
             //replacing the values
             TotalCohesionPoint = newCohesionPoint;
-            TotalSumBoidsVelocity = newTotalVelocity;
         }
-
 
         private void AddBoids()
         {

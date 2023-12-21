@@ -16,3 +16,4 @@ three rules for boid
 - steer to the center of the boids (cohesion)
 
 Plan:
+ask Mr shamim about the Boid implementation
