@@ -1,13 +1,17 @@
 ﻿using Assets.Improve_scripts.Scripts;
+using System;
 using System.Collections;
 using System.Runtime.InteropServices;
+using Unity.Burst;
 using Unity.Collections;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Jobs;
 using UnityEngine.Windows.Speech;
 
 namespace Assets.Improve_scripts.Jobs
 {
+    [BurstCompile]
     public struct BoidJob : IJobParallelForTransform
     {
         [ReadOnly]
@@ -32,7 +36,7 @@ namespace Assets.Improve_scripts.Jobs
                 TeleportBoid(transform);
             }
             RotateGameObjectBasedOnTargetDirection(transform, velocityFound);
-            MoveBoid(transform);
+            MoveBoid(transform , index);
 
             var currentBoid = InputData[index];
             currentBoid.velocity = velocityFound;
@@ -134,8 +138,6 @@ namespace Assets.Improve_scripts.Jobs
 
         #region bounds
         //make sure to rip this part out!
-
-
         private void TeleportBoid(TransformAccess transform)
         {
             Vector2 pos = transform.position;
@@ -199,21 +201,14 @@ namespace Assets.Improve_scripts.Jobs
         }
         #endregion
 
-        private void MoveBoid(TransformAccess transform)
+        private void MoveBoid(TransformAccess transform , int index)
         {
-            //add speed is for making the speed faster or slower depending
-            //on the three behaviour
-
-            //uncomment this out later on after fixing certain parts of the boid
-            //boids will move at a constant speed
-
-            //float addSpeed = ((TargetSpeed - Speed) / 10.0f);
-            //Speed = Speed + addSpeed * Time.deltaTime;
-
-            //if (Speed > MaxSpeed) //cap the next speed
-            //    Speed = MaxSpeed;
+           
             float speed = 10;
-            transform.position += (Vector3.right * speed * deltaTime);
+
+            //using vector3 right for forward then finding the 
+            Vector3 vectorToMove = Quaternion.Euler(0, 0, transform.rotation.eulerAngles.z) * Vector3.right ;
+            transform.position += (vectorToMove * speed * deltaTime);
             //the logic behind this code is because the sprite is 
             //on the vector3.right, the forward is the local rotation on the right. 
             //so it will act as if it is going forward, but dont worry about this line of code

@@ -86,6 +86,8 @@ namespace Assets.Improve_scripts.Scripts
         private DataRule dataForJobRule;
         private JobHandle boidJob;
 
+        [Range(1,10)]
+        [SerializeField] private int jobSplit = 1;
 
         private void Start()
         {
@@ -94,6 +96,10 @@ namespace Assets.Improve_scripts.Scripts
 
         private void Update()
         {
+            foreach (var boid in boidsData)
+            {
+                print($"position: {boid.position} , velocity {boid.velocity}");
+            }
             ListenToAddBoidsInput();
             UpdateJobRule();
             ScheduleBoidMovement();
@@ -113,7 +119,9 @@ namespace Assets.Improve_scripts.Scripts
 
         private void ScheduleBoidMovement()
         {
-            boidsTransformAccessArray = new TransformAccessArray(boids.ToArray(), 10);
+            //probably have to create multiple job handles to do this shit https://www.youtube.com/watch?v=C56bbgtPr_w&t=508s
+
+            boidsTransformAccessArray = new TransformAccessArray(boids.ToArray(), jobSplit);
             //boidsNativeVelocity = new NativeArray<Vector3>(boidsVelocity.ToArray(), Allocator.TempJob);
             boidsNativeDataInput = new NativeArray<BoidData>(boidsData.ToArray(),Allocator.TempJob);
             boidsNativeDataOutput = new NativeArray<BoidData>(boidsData.Count,Allocator.TempJob);
@@ -180,10 +188,7 @@ namespace Assets.Improve_scripts.Scripts
             }
             //for debugging purpose
 
-            //foreach(var boid in boidsData)
-            //{
-            //    print($"position: {boid.position} , velocity {boid.velocity}");
-            //}
+            
 
         }
 
