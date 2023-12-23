@@ -1,5 +1,6 @@
 ﻿using Assets.Improve_scripts.Scripts;
 using System.Collections;
+using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine;
@@ -12,6 +13,8 @@ namespace Assets.Improve_scripts.Jobs
         public DataForJobRule data;
         public NativeArray<Vector3> result;
         public BoidData thisBoidData;
+        public NativeArray<BoidData> allBoids;
+        public Vector2 randomVelocityPreMade;
         public void Execute()
         {
             CalculateVelocityThroughRules();
@@ -22,6 +25,8 @@ namespace Assets.Improve_scripts.Jobs
         {
             //Vector2 FinalVelocity = Vector2.zero;
             //velocity = Vector2.zero;
+
+
             var velocity = thisBoidData.velocity;
 
             var seperationVelocity = Vector2.zero;
@@ -34,10 +39,10 @@ namespace Assets.Improve_scripts.Jobs
 
             Vector2 totalSumOfVelocity = seperationVelocity + AlignmentVelocity + cohesionVelocity;
 
-            if (velocity == Vector2.zero) velocity = SetRandomVelocity();
+            if (velocity == Vector2.zero) velocity = randomVelocityPreMade;
             if (totalSumOfVelocity != Vector2.zero) velocity += totalSumOfVelocity;
 
-            result[0] = velocity;
+            result[0] = (Vector3)velocity;
             //CheckIfOutOfBound(); //if bounce then this will work
             ////the bound velocity will take priorty then the other rules
 
@@ -51,7 +56,7 @@ namespace Assets.Improve_scripts.Jobs
 
             Vector2 resultantVelocity = Vector2.zero;
 
-            foreach(var otherBoid in data.otherBoids)
+            foreach(var otherBoid in allBoids)
             {
                 Vector3 otherBoidPosition = otherBoid.position;
                 float distance = Vector3.Distance(boidPosition, otherBoidPosition);
@@ -70,7 +75,7 @@ namespace Assets.Improve_scripts.Jobs
         {
             Vector2 position = thisBoidData.position;
             Vector2 avgCohesionPoint = ((Vector2)data.cohesionPoint - position) /
-                (data.otherBoids.Length - 1);
+                (allBoids.Length - 1);
 
             Vector2 velocity = avgCohesionPoint - position; //the direction needed to move to the center
             return velocity.normalized;
@@ -95,7 +100,7 @@ namespace Assets.Improve_scripts.Jobs
             */
             Vector2 resultantDirection = Vector2.zero;
             int count = 0;
-            foreach(var otherBoid in data.otherBoids)
+            foreach(var otherBoid in allBoids)
             {
                 if (otherBoid.position == thisBoidData.position &&
                     otherBoid.velocity == thisBoidData.velocity
@@ -120,13 +125,6 @@ namespace Assets.Improve_scripts.Jobs
             //because the effect can be quite powerful so divide by 10 to reduce it
             return resultantDirection.normalized;
 
-        }
-
-        Vector2 SetRandomVelocity()
-        {
-            float x = UnityEngine.Random.Range(-5f, 5f);
-            float y = UnityEngine.Random.Range(-5f, 5f);
-            return new Vector2(x, y);
         }
 
     }

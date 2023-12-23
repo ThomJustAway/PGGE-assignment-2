@@ -1,16 +1,15 @@
-﻿using System.Collections;
-using Unity.Collections;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace Assets.Improve_scripts.Jobs
 {
-    public struct DataForJobRule 
+    public struct DataRule
     {
 
         #region rules
         public bool useAlignmentRule;
         public bool useCohesionRule;
         public bool useSeparationRule;
+        public bool BounceWall;
         #endregion
 
         public float WEIGHT_ALIGNMENT;
@@ -19,18 +18,14 @@ namespace Assets.Improve_scripts.Jobs
 
         public float AlignmentRadius;
         public float SeparationRadius;
-        public Vector3 cohesionPoint;
-    }
 
-    public struct BoidData
-    {
-        public Vector3 position;
-        public Vector2 velocity;
+        #region for the boids
+        public Vector2 minBound;
+        public Vector2 maxBound;
 
-        public BoidData(Vector3 position,Vector2 velocity )
-        {
-            this.position = position;
-            this.velocity = velocity;
-        }
+        public float RotationSpeed;
+        public float MaxSpeed;
+
+        #endregion
     }
 }

@@ -7,6 +7,7 @@ using Unity.Collections;
 using Unity.Jobs;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.PlayerLoop;
 using static Unity.Collections.AllocatorManager;
 
 namespace Assets.Improve_scripts.Scripts
@@ -38,9 +39,9 @@ namespace Assets.Improve_scripts.Scripts
         //to do write two function for seperation and alighnment
 
         //for job system
-        JobHandle jobRule;
-        NativeArray<Vector3> result;
-
+        private JobHandle jobRule;
+        private NativeArray<Vector3> Result;
+        private NativeArray<BoidData> otherBoids;
         public void Init(FlockCreator creator)
         {
             name = "Boid_" + creator.name + "_" + creator.numberOfBoids;
@@ -56,42 +57,63 @@ namespace Assets.Improve_scripts.Scripts
             transform.position = new Vector2(x, y);
         }
 
-        void Start()
+        private void Start()
         {
+            HandleRuleJob();
             SetRandomSpeed();
             SetRandomVelocity();
         }
 
-
-
-        
-        public void Update()
+        private void Update()
         {
+
             //completete movement
             //CompleteBoidBehaviour();
             //MoveBoidToNewPosition();
+
             HandleRuleJob();
             RotateGameObjectBasedOnTargetDirection();
             MoveBoid();
             //check for collision
         }
 
-        public void LateUpdate()
+        private void LateUpdate()
         {
             jobRule.Complete();
             //calculate velocity here!
-            var foundVelocity = result[0];
-            result.Dispose();
-            print(foundVelocity);
+            Vector2 totalSumOfVelocity = Result[0]; 
+            Result.Dispose();
+
+
+            if (velocity == Vector2.zero) SetRandomVelocity();
+            if (totalSumOfVelocity != Vector2.zero) velocity += totalSumOfVelocity;
+
+            CheckIfOutOfBound(); //if bounce then this will work
+            //the bound velocity will take priorty then the other rules
+
+            TargetDirection = velocity.normalized;
+            TargetSpeed = velocity.magnitude * FlockCreator.WEIGHT_SPEED;
         }
 
         private void HandleRuleJob()
         {
-            var newJob = new BoidRules()
+            Result = new NativeArray<Vector3>(1, Allocator.TempJob);
+            otherBoids = new NativeArray<BoidData>(FlockCreator.Boids.Count, Allocator.TempJob);
+
+            for(int i = 0; i < FlockCreator.Boids.Count; i++)
+            {
+                var boid = FlockCreator.Boids[i];
+                otherBoids[i] = new BoidData(boid.transform.position, boid.velocity);
+            }
+
+            BoidRules newJob = new BoidRules()
             {
                 thisBoidData = new BoidData(transform.position, velocity),
                 data = FlockCreator.DataForJobRule,
-                result = new NativeArray<Vector3>(1, Allocator.TempJob)
+                result = Result,
+                allBoids = otherBoids,
+                randomVelocityPreMade = new Vector2(UnityEngine.Random.Range(-5f, 5f),
+                UnityEngine.Random.Range(-5f, 5f))
             };
             jobRule = newJob.Schedule();
         }
@@ -139,7 +161,7 @@ namespace Assets.Improve_scripts.Scripts
             transform.position = pos;
         }
 
-        private void BounceBoid() //This problem can be trace back here!
+        private void BounceBoid() 
         {
             //Vector2 newDirection = Vector2.zero;
             Bounds boxBound = FlocksController.Instance.BoxCollider2D.bounds;
