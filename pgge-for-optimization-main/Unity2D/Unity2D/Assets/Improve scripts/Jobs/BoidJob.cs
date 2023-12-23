@@ -21,6 +21,8 @@ namespace Assets.Improve_scripts.Jobs
         {
             Vector2 velocityFound   = CalculateVelocityThroughRules(transform, index);
 
+            Debug.Log($"index {index}, velocity: {velocityFound}");
+
             if (rules.BounceWall)
             {
                 velocityFound = BounceBoid(transform, velocityFound);
@@ -40,14 +42,7 @@ namespace Assets.Improve_scripts.Jobs
 
         private Vector3 CalculateVelocityThroughRules(TransformAccess transform , int index)
         {
-            //Vector2 FinalVelocity = Vector2.zero;
-            //velocity = Vector2.zero;
-
-            Debug.Log($"index {index} , {InputData.Length}");
-
             Vector3 velocity = InputData[index].velocity;
-
-            //var velocity = thisBoidData.velocity;
 
             var seperationVelocity = Vector2.zero;
             var cohesionVelocity = Vector2.zero;
@@ -56,6 +51,8 @@ namespace Assets.Improve_scripts.Jobs
             if (rules.useSeparationRule) seperationVelocity = SeperationRule(transform) * rules.WEIGHT_SEPERATION;
             //if (rules.useCohesionRule) cohesionVelocity = CohesionRule() * rules.WEIGHT_COHESION;
             if (rules.useAlignmentRule) AlignmentVelocity = AlignmentRule(transform,index) * rules.WEIGHT_ALIGNMENT;
+
+            Debug.Log($"seperation velocity{seperationVelocity} alignment velocity {AlignmentVelocity}");
 
             Vector3 totalSumOfVelocity = seperationVelocity + AlignmentVelocity + cohesionVelocity;
 
@@ -81,9 +78,11 @@ namespace Assets.Improve_scripts.Jobs
                 Vector3 otherBoidPosition = InputData[i].position;
                 //Vector3 otherBoidPosition = otherBoid.position;
                 float distance = Vector3.Distance(boidPosition, otherBoidPosition);
-                if (distance <= rules.SeparationRadius)
-                {//within range
-                    //it is fine to include (this boid position - this boid position) since opposite direction = 0;
+
+                if (distance <= rules.SeparationRadius) //within range
+                {
+                    //it is fine to include (this boid position - this boid position) since opposite direction = 0; 
+                    //so no changes in the end
                     Vector2 oppositeDirection = (Vector2)(boidPosition - otherBoidPosition);
                     resultantVelocity += oppositeDirection;
                 }
@@ -214,7 +213,7 @@ namespace Assets.Improve_scripts.Jobs
             //if (Speed > MaxSpeed) //cap the next speed
             //    Speed = MaxSpeed;
             float speed = 10;
-            transform.localPosition += (Vector3.right * speed * deltaTime);
+            transform.position += (Vector3.right * speed * deltaTime);
             //the logic behind this code is because the sprite is 
             //on the vector3.right, the forward is the local rotation on the right. 
             //so it will act as if it is going forward, but dont worry about this line of code

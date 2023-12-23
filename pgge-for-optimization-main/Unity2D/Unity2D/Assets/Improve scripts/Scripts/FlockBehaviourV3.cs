@@ -178,24 +178,32 @@ namespace Assets.Improve_scripts.Scripts
             {
                 InitBoid();
             }
+            //for debugging purpose
+
+            //foreach(var boid in boidsData)
+            //{
+            //    print($"position: {boid.position} , velocity {boid.velocity}");
+            //}
+
         }
 
         private void InitBoid()
         {
             GameObject boid = Instantiate(PrefabBoid, transform);
 
-            boids.Add(boid.transform);
-
             //randomly set the 
             float x = UnityEngine.Random.Range(bounds.min.x, bounds.max.x);
             float y = UnityEngine.Random.Range(bounds.min.y, bounds.max.y);
-            transform.position = new Vector2(x, y);
+
+            boid.transform.position = new Vector2(x, y);
+            boid.name = "Boid_" + name + "_" + boids.Count;
 
             //set a random velocity to the boid
-            boidsData.Add(new BoidData(transform.position, SetRandomVelocity()));
+            boids.Add(boid.transform);
+            boidsData.Add(new BoidData(boid.transform.position, SetRandomVelocity()));
 
-            boid.name = "Boid_" + name + "_" + boids.Count;
         }
+
         private Vector3 SetRandomVelocity()
         {
             float x = UnityEngine.Random.Range(-5f, 5f);

@@ -697,7 +697,7 @@ MonoBehaviour:
   seperationRadius: 2
   alignmentRadius: 5
   enemySeperationDistance: 0
-  bounceWall: 0
+  bounceWall: 1
 --- !u!4 &249180414
 Transform:
   m_ObjectHideFlags: 0
