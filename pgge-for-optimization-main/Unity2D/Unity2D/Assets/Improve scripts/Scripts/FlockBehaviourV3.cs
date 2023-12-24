@@ -122,7 +122,6 @@ namespace Assets.Improve_scripts.Scripts
             //probably have to create multiple job handles to do this shit https://www.youtube.com/watch?v=C56bbgtPr_w&t=508s
 
             boidsTransformAccessArray = new TransformAccessArray(boids.ToArray(), jobSplit);
-            //boidsNativeVelocity = new NativeArray<Vector3>(boidsVelocity.ToArray(), Allocator.TempJob);
             boidsNativeDataInput = new NativeArray<BoidData>(boidsData.ToArray(),Allocator.TempJob);
             boidsNativeDataOutput = new NativeArray<BoidData>(boidsData.Count,Allocator.TempJob);
 
@@ -135,6 +134,7 @@ namespace Assets.Improve_scripts.Scripts
                 OutputData = boidsNativeDataOutput,
             };
             boidJob = job.Schedule(boidsTransformAccessArray);
+
         }
 
         private void RecieveJob()

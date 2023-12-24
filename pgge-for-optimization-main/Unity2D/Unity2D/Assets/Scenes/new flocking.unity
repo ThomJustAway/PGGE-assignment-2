@@ -698,6 +698,7 @@ MonoBehaviour:
   alignmentRadius: 5
   enemySeperationDistance: 0
   bounceWall: 1
+  jobSplit: 7
 --- !u!4 &249180414
 Transform:
   m_ObjectHideFlags: 0

@@ -14,13 +14,13 @@ namespace Assets.Improve_scripts.Jobs
     [BurstCompile]
     public struct BoidJob : IJobParallelForTransform
     {
-        [ReadOnly]
-        public NativeArray<BoidData> InputData;
+
+        [ReadOnly] public NativeArray<BoidData> InputData;
         public NativeArray<BoidData> OutputData;
 
-        public DataRule rules;
-        public float deltaTime;
-        public Vector2 randomVelocityPreMade;
+        [ReadOnly] public DataRule rules;
+        [ReadOnly] public float deltaTime;
+        [ReadOnly] public Vector2 randomVelocityPreMade;
         public void Execute(int index, TransformAccess transform)
         {
             Vector2 velocityFound   = CalculateVelocityThroughRules(transform, index);
@@ -170,28 +170,28 @@ namespace Assets.Improve_scripts.Jobs
         private Vector2 BounceBoid(TransformAccess transform,Vector2 velocity)
         {
             //Vector2 newDirection = Vector2.zero;
-            Bounds boxBound = FlocksController.Instance.BoxCollider2D.bounds;
+            //Bounds boxBound = FlocksController.Instance.BoxCollider2D.bounds;
             //for the x axis
             Vector2 pos = transform.position;
 
             float padding = 0f;
-            if (pos.x > boxBound.max.x - padding)
+            if (pos.x > rules.maxBound.x - padding)
             {
                 //make sure the boids 
                 velocity.x = -1f;
             }
-            else if (pos.x < boxBound.min.x + padding)
+            else if (pos.x < rules.minBound.x + padding)
             {
                 //teleport boid to the right side of the map
                 velocity.x = 1f;
             }
             //for the y axis
-            if (pos.y > boxBound.max.y - padding)
+            if (pos.y > rules.maxBound.y - padding)
             {
                 //teleport boid to the bottom of the map
                 velocity.y = -1f;
             }
-            else if (pos.y < boxBound.min.y + padding)
+            else if (pos.y < rules.minBound.y + padding)
             {
                 //teleport boid to the top of the map
                 velocity.y = 1f;
