@@ -4,6 +4,7 @@ using System.Collections;
 using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Jobs;
@@ -20,13 +21,12 @@ namespace Assets.Improve_scripts.Jobs
 
         [ReadOnly] public DataRule rules;
         [ReadOnly] public float deltaTime;
-        [ReadOnly] public Vector2 randomVelocityPreMade;
+        [ReadOnly] public float2 randomVelocityPreMade;
+
+
         public void Execute(int index, TransformAccess transform)
         {
-            Vector2 velocityFound   = CalculateVelocityThroughRules(transform, index);
-
-            Debug.Log($"index {index}, velocity: {velocityFound}");
-
+            float2 velocityFound   = CalculateVelocityThroughRules(transform, index);
             if (rules.BounceWall)
             {
                 velocityFound = BounceBoid(transform, velocityFound);
@@ -44,24 +44,25 @@ namespace Assets.Improve_scripts.Jobs
             OutputData[index] = currentBoid;
         }
 
-        private Vector3 CalculateVelocityThroughRules(TransformAccess transform , int index)
+        private float2 CalculateVelocityThroughRules(TransformAccess transform , int index)
         {
-            Vector3 velocity = InputData[index].velocity;
+            float2 velocity = InputData[index].velocity;
 
-            var seperationVelocity = Vector2.zero;
-            var cohesionVelocity = Vector2.zero;
-            var AlignmentVelocity = Vector2.zero;
+            var seperationVelocity = float2.zero;
+            var cohesionVelocity = float2.zero;
+            var AlignmentVelocity = float2.zero;
 
             if (rules.useSeparationRule) seperationVelocity = SeperationRule(transform) * rules.WEIGHT_SEPERATION;
             //if (rules.useCohesionRule) cohesionVelocity = CohesionRule() * rules.WEIGHT_COHESION;
             if (rules.useAlignmentRule) AlignmentVelocity = AlignmentRule(transform,index) * rules.WEIGHT_ALIGNMENT;
 
-            Debug.Log($"seperation velocity{seperationVelocity} alignment velocity {AlignmentVelocity}");
+            Debug.Log($"index{index} seperation velocity{seperationVelocity} alignment velocity {AlignmentVelocity}");
 
-            Vector3 totalSumOfVelocity = seperationVelocity + AlignmentVelocity + cohesionVelocity;
+            float2 totalSumOfVelocity = seperationVelocity + AlignmentVelocity + cohesionVelocity;
 
-            if (velocity == Vector3.zero) velocity = randomVelocityPreMade;
-            if (totalSumOfVelocity != Vector3.zero) velocity += totalSumOfVelocity;
+            if (IsEqual(velocity , float2.zero)) velocity = randomVelocityPreMade;
+            //totalSumOfVelocity != Vector3.zero
+            if (!IsEqual(totalSumOfVelocity , float2.zero)) velocity += totalSumOfVelocity;
 
             return velocity;
             //CheckIfOutOfBound(); //if bounce then this will work
@@ -71,28 +72,28 @@ namespace Assets.Improve_scripts.Jobs
             //TargetSpeed = velocity.magnitude * FlockCreator.WEIGHT_SPEED;
         }
 
-        private Vector2 SeperationRule(TransformAccess transform)
+        private float2 SeperationRule(TransformAccess transform)
         {
-            Vector3 boidPosition = transform.position;
+            float3 boidPosition = transform.position;
 
-            Vector2 resultantVelocity = Vector2.zero;
+            float3 resultantVelocity = float3.zero;
 
             for(int i = 0; i < InputData.Length; i++)
             {
-                Vector3 otherBoidPosition = InputData[i].position;
+                float3 otherBoidPosition = InputData[i].position;
                 //Vector3 otherBoidPosition = otherBoid.position;
                 float distance = Vector3.Distance(boidPosition, otherBoidPosition);
-
+                
                 if (distance <= rules.SeparationRadius) //within range
                 {
                     //it is fine to include (this boid position - this boid position) since opposite direction = 0; 
                     //so no changes in the end
-                    Vector2 oppositeDirection = (Vector2)(boidPosition - otherBoidPosition);
+                    float3 oppositeDirection = (boidPosition - otherBoidPosition);
                     resultantVelocity += oppositeDirection;
                 }
             }
 
-            return resultantVelocity;
+            return new float2(resultantVelocity.x , resultantVelocity.y);
         }
 
         //private Vector2 CohesionRule(TransformAccess transform)
@@ -105,36 +106,67 @@ namespace Assets.Improve_scripts.Jobs
         //    return velocity.normalized;
         //}
 
-        private Vector2 AlignmentRule(TransformAccess transform , int index)
+        private float2 AlignmentRule(TransformAccess transform , int index)
         {
-            Vector2 resultantDirection = Vector2.zero;
+            float2 resultantDirection = float2.zero;
             int count = 0;
             
             for (int i = 0; i < InputData.Length; i++)
             {
                 if (i == index) continue;
-
-                float distance = Vector2.Distance(
+                float distance = FindDistance(
                     transform.position,
                     InputData[i].position);
 
-                if (distance <= rules.AlignmentRadius)
+                if (distance <= rules.AlignmentRadius )
                 {//within distance
-                    resultantDirection += (Vector2) InputData[i].velocity.normalized;
+                    resultantDirection +=  Normalise(InputData[i].velocity);
                     count++;
                 }
             }
 
-            if (resultantDirection != Vector2.zero)
-            {//that mean that there are boids nearby so the number of boid is n - 1.
-                resultantDirection /= count - 1;
-            }
+            ////resultantDirection != float2.zero
+            //if ( !IsEqual(resultantDirection , float2.zero) && count != 0)
+            //{//that mean that there are boids nearby so the number of boid is n - 1.
+            //    resultantDirection /= count ;
+            //}
 
             //because the effect can be quite powerful so divide by 10 to reduce it
-            return resultantDirection.normalized;
+            return Normalise(resultantDirection);
 
         }
 
+        #region equation
+        private bool IsEqual(float2 a , float2 b)
+        {
+            return (a.x == b.x && a.y == b.y);
+        }
+
+        private bool IsEqual(float3 a, float3 b)
+        {
+            return (a.x == b.x && a.y == b.y && a.z == b.z);
+        }
+
+
+        private float FindDistance(float3 a , float3 b)
+        {
+            float3 distanceVector = a - b;
+            //ignore z because we doing 2d
+            return math.sqrt((distanceVector.x * distanceVector.x) + (distanceVector.y * distanceVector.y));
+        }
+
+        private float3 Normalise(float3 a)
+        {
+            float distance = math.sqrt((a.x * a.x) + (a.y * a.y));
+            return a/distance;
+        }
+
+        private float2 Normalise(float2 a)
+        {
+            float distance = math.sqrt((a.x * a.x) + (a.y * a.y));
+            return a / distance;
+        }
+        #endregion 
 
         #region bounds
         //make sure to rip this part out!
@@ -207,7 +239,7 @@ namespace Assets.Improve_scripts.Jobs
             float speed = 10;
 
             //using vector3 right for forward then finding the 
-            Vector3 vectorToMove = Quaternion.Euler(0, 0, transform.rotation.eulerAngles.z) * Vector3.right ;
+            Vector3 vectorToMove = Quaternion.Euler(0, 0, transform.rotation.eulerAngles.z) * new float3(1,0,0) ;
             transform.position += (vectorToMove * speed * deltaTime);
             //the logic behind this code is because the sprite is 
             //on the vector3.right, the forward is the local rotation on the right. 
@@ -215,11 +247,12 @@ namespace Assets.Improve_scripts.Jobs
         }
 
         //this function will require target direction to move (will normalize the value)
-        private void RotateGameObjectBasedOnTargetDirection(TransformAccess transform, Vector3 velocity)
+        private void RotateGameObjectBasedOnTargetDirection(TransformAccess transform, float2 velocity)
         {
-            Vector3 targetDirection = velocity.normalized;
+            var float3Dir = new float3(velocity, 0);
+            float3 targetDirection = Normalise(float3Dir);
             //get the normalize value of the target direction
-            Vector3 rotatedVectorToTarget =
+            float3 rotatedVectorToTarget =
                 Quaternion.Euler(0, 0, 90) *
                 targetDirection;
             //not too sure why they rotate the target direction by 90 degree for this...
@@ -235,5 +268,7 @@ namespace Assets.Improve_scripts.Jobs
                 targetRotation,
                 rules.RotationSpeed * deltaTime); //give out the next rotation
         }
+
+        
     }
 }

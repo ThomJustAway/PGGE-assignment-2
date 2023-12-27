@@ -432,6 +432,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   textNumBoids: {fileID: 1944975884}
   textNumEnemies: {fileID: 1250291134}
+  flockbehaviour: {fileID: 875704704}
+  improveflockbehaviour: {fileID: 0}
 --- !u!1 &123748669
 GameObject:
   m_ObjectHideFlags: 0
@@ -1251,7 +1253,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 875704703}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a70ef59591ab02c408ce0a83df2727c4, type: 3}
   m_Name: 
@@ -1282,13 +1284,13 @@ MonoBehaviour:
   TickDuration: 1
   TickDurationSeparationEnemy: 0.01
   TickDurationRandom: 1
-  BoidIncr: 100
+  BoidIncr: 1000
   useFlocking: 1
   BatchSize: 200
   flocks:
   - PrefabBoid: {fileID: 1138522166324048232, guid: 1b7bb4e6c0d12884c97216ff0bcde98f, type: 3}
     name: Boids
-    numBoids: 100
+    numBoids: 0
     isPredator: 0
     colour: {r: 1, g: 1, b: 1, a: 1}
     maxSpeed: 25
@@ -1312,7 +1314,7 @@ MonoBehaviour:
     mAutonomous: []
   - PrefabBoid: {fileID: 389496565818785944, guid: 7bc84c9bd85bd9342ba24c647efb0df1, type: 3}
     name: Predators
-    numBoids: 20
+    numBoids: 0
     isPredator: 1
     colour: {r: 1, g: 1, b: 1, a: 1}
     maxSpeed: 20
@@ -1356,7 +1358,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 875704703}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5d47be169b020944d95cf709b19c2589, type: 3}
   m_Name: 

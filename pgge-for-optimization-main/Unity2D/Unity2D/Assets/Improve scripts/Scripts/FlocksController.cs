@@ -13,15 +13,15 @@ namespace Assets.Improve_scripts.Scripts
         public int numberOfBoidsToSpawn { get { return BoidsToSpawn; } } 
         [SerializeField] private FlockCreator[] flocks;
         
-        public int numberOfBoidsCurrently { get
-            {
-                int number = 0;
-                foreach (var f in flocks)
-                {
-                    number += f.numberOfBoids;
-                }
-                return number;
-            } }
+        //public int numberOfBoidsCurrently { get
+        //    {
+        //        int number = 0;
+        //        foreach (var f in flocks)
+        //        {
+        //            number += f.numberOfBoids;
+        //        }
+        //        return number;
+        //    } }
         #endregion
 
         private void OnDrawGizmos()

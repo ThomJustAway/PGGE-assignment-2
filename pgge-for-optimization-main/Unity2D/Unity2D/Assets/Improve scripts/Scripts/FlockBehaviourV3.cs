@@ -1,9 +1,11 @@
 ﻿using Assets.Improve_scripts.Jobs;
+using Assets.Improve_scripts.Jobs.Version_4;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Collections;
 using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Jobs;
 
@@ -76,10 +78,9 @@ namespace Assets.Improve_scripts.Scripts
         #endregion
         private Bounds bounds;
 
-        private List<Transform> boids = new List<Transform>();
+        private List<BoidDataTransform> boids = new List<BoidDataTransform>();
         private TransformAccessArray boidsTransformAccessArray;
 
-        private List<BoidData> boidsData = new List<BoidData>();
         private NativeArray<BoidData> boidsNativeDataInput;
         private NativeArray<BoidData> boidsNativeDataOutput;
 
@@ -91,24 +92,18 @@ namespace Assets.Improve_scripts.Scripts
 
         private void Start()
         {
+            ScheduleJob2();
             bounds = FlocksController.Instance.BoxCollider2D.bounds;
         }
 
         private void Update()
         {
-            foreach (var boid in boidsData)
-            {
-                print($"position: {boid.position} , velocity {boid.velocity}");
-            }
+            
+            if(boidJob.IsCompleted) ScheduleNextBoidMovement();
             ListenToAddBoidsInput();
             UpdateJobRule();
-            ScheduleBoidMovement();
         }
 
-        private void LateUpdate()
-        {
-            RecieveJob();
-        }
 
         private void OnDestroy()
         {
@@ -117,31 +112,80 @@ namespace Assets.Improve_scripts.Scripts
             boidsNativeDataOutput.Dispose();
         }
 
-        private void ScheduleBoidMovement()
+        private void ScheduleNextBoidMovement()
         {
             //probably have to create multiple job handles to do this shit https://www.youtube.com/watch?v=C56bbgtPr_w&t=508s
+            RecieveJob();
+            ScheduleJob2();
+        }
 
-            boidsTransformAccessArray = new TransformAccessArray(boids.ToArray(), jobSplit);
-            boidsNativeDataInput = new NativeArray<BoidData>(boidsData.ToArray(),Allocator.TempJob);
-            boidsNativeDataOutput = new NativeArray<BoidData>(boidsData.Count,Allocator.TempJob);
+        //private void ScheduleJob()
+        //{
+        //    boidsTransformAccessArray = new TransformAccessArray(boids.Count);
+        //    boidsNativeDataInput = new NativeArray<BoidData>(boids.Count, Allocator.TempJob);
+        //    boidsNativeDataOutput = new NativeArray<BoidData>(boids.Count, Allocator.TempJob);
 
-            BoidJob job = new BoidJob()
+        //    for (int i = 0; i < boids.Count; i++)
+        //    {
+        //        var boid = boids[i];
+        //        boidsTransformAccessArray.Add(boid.transform);
+        //        boidsNativeDataInput[i] = new BoidData(boid.position, boid.velocity);
+        //    }
+
+        //    BoidJob job = new BoidJob()
+        //    {
+        //        rules = dataForJobRule,
+        //        deltaTime = Time.deltaTime,
+        //        randomVelocityPreMade = SetRandomVelocityFloat2(),
+        //        InputData = boidsNativeDataInput,
+        //        OutputData = boidsNativeDataOutput,
+        //    };
+        //    boidJob = job.Schedule(boidsTransformAccessArray);
+        //}
+
+        private void ScheduleJob2()
+        {
+            boidsTransformAccessArray = new TransformAccessArray(boids.Count);
+            boidsNativeDataInput = new NativeArray<BoidData>(boids.Count, Allocator.TempJob);
+            boidsNativeDataOutput = new NativeArray<BoidData>(boids.Count, Allocator.TempJob);
+;
+            for (int i = 0; i < boids.Count; i++)
             {
-                rules = dataForJobRule,
-                deltaTime = Time.deltaTime,
-                randomVelocityPreMade = SetRandomVelocity(),
-                InputData = boidsNativeDataInput,
-                OutputData = boidsNativeDataOutput,
-            };
-            boidJob = job.Schedule(boidsTransformAccessArray);
+                var boid = boids[i];
+                boidsTransformAccessArray.Add(boid.transform);
+                boidsNativeDataInput[i] = new BoidData(boid.position, boid.velocity);
+            }
 
+            CalculateBoidsVelocity calculatingVelocityJob = new CalculateBoidsVelocity()
+            {
+                boids = boidsNativeDataInput,
+                rules = dataForJobRule,
+                randomVelocityPreMade = SetRandomVelocityFloat2(),
+                outputBoid = boidsNativeDataOutput,
+                
+            };
+
+            MoveBoidsUsingVelocity moveBoidJob = new MoveBoidsUsingVelocity()
+            {
+                Boids = boidsNativeDataOutput,
+                deltaTime = Time.deltaTime,
+                rules = dataForJobRule,
+            };
+
+            JobHandle handleCalculatingJob = calculatingVelocityJob.Schedule(boids.Count,jobSplit);
+            boidJob = moveBoidJob.Schedule(boidsTransformAccessArray, handleCalculatingJob);
         }
 
         private void RecieveJob()
         {
             boidJob.Complete();
-            boidsData = boidsNativeDataOutput.ToList(); //update the position in the struct container
+            var output = boidsNativeDataOutput.ToArray(); //update the position in the struct container
 
+            for(int i = 0; i< output.Length; i++)
+            {
+                var newBoid = new BoidDataTransform(output[i].position, output[i].velocity, boids[i].transform);
+                boids[i] = newBoid;
+            }
             //free up memory
             boidsTransformAccessArray.Dispose();
             boidsNativeDataInput.Dispose();
@@ -187,14 +231,11 @@ namespace Assets.Improve_scripts.Scripts
                 InitBoid();
             }
             //for debugging purpose
-
-            
-
         }
 
         private void InitBoid()
         {
-            GameObject boid = Instantiate(PrefabBoid, transform);
+            GameObject boid = Instantiate(PrefabBoid);
 
             //randomly set the 
             float x = UnityEngine.Random.Range(bounds.min.x, bounds.max.x);
@@ -204,16 +245,24 @@ namespace Assets.Improve_scripts.Scripts
             boid.name = "Boid_" + name + "_" + boids.Count;
 
             //set a random velocity to the boid
-            boids.Add(boid.transform);
-            boidsData.Add(new BoidData(boid.transform.position, SetRandomVelocity()));
-
+            boids.Add(new BoidDataTransform(boid.transform.position,
+                SetRandomVelocityVector3(),
+                boid.transform
+                ));
         }
 
-        private Vector3 SetRandomVelocity()
+        private Vector3 SetRandomVelocityVector3()
         {
             float x = UnityEngine.Random.Range(-5f, 5f);
             float y = UnityEngine.Random.Range(-5f, 5f);
             return new Vector2(x, y);
+        }
+
+        private float2 SetRandomVelocityFloat2()
+        {
+            float x = UnityEngine.Random.Range(-5f, 5f);
+            float y = UnityEngine.Random.Range(-5f, 5f);
+            return new float2(x, y);
         }
         #endregion
 

@@ -1,6 +1,8 @@
 ﻿using System.Collections;
 using Unity.Collections;
+using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Jobs;
 
 namespace Assets.Improve_scripts.Jobs
 {
@@ -24,8 +26,8 @@ namespace Assets.Improve_scripts.Jobs
 
     public struct BoidData
     {
-        public Vector3 position;
-        public Vector2 velocity;
+        public float3 position;
+        public float2 velocity;
 
         public BoidData(Vector3 position,Vector2 velocity )
         {
@@ -33,4 +35,18 @@ namespace Assets.Improve_scripts.Jobs
             this.velocity = velocity;
         }
     }
+
+    public struct BoidDataTransform 
+    {
+        public Vector3 position;
+        public Vector2 velocity;
+        public Transform transform;
+        public BoidDataTransform(Vector3 position, Vector2 velocity , Transform transform)
+        {
+            this.position = position;
+            this.velocity = velocity;
+            this.transform = transform;
+        }
+    }
+
 }

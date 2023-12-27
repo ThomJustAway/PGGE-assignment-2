@@ -9,41 +9,44 @@ public class UI : MonoBehaviour
     public Text textNumBoids;
     public Text textNumEnemies;
 
-    //public FlockBehaviour flockBehaviour;
-    //public FlockBehaviourImprove ImproveFlockBehaviour;
+    public FlockBehaviour flockbehaviour;
+    public FlockBehaviourImprove improveflockbehaviour;
     void Start()
     {
-        StartCoroutine(Coroutine_UpdateText());
+        StartCoroutine(coroutine_updatetext());
     }
 
-    IEnumerator Coroutine_UpdateText()
+    IEnumerator coroutine_updatetext()
     {
-        while(true)
+        while (true)
         {
-            int enemyCount = 0;
-            int boidCount = FlocksController.Instance.numberOfBoidsCurrently;
-            textNumBoids.text = "Boids: " + boidCount.ToString();
-            textNumEnemies.text = "Predators: " + enemyCount.ToString();
+            int enemycount = 0;
+            int boidcount = 0;
+            foreach(var flock in  flockbehaviour.flocks) {
+                boidcount += flock.numBoids;
+            }
+            textNumBoids.text = "boids: " + boidcount.ToString();
+            //textNumEnemies.text = "predators: " + enemycount.tostring();
             yield return new WaitForSeconds(0.5f);
         }
     }
 
-    //IEnumerator Coroutine_UpdateTextForImprove()
+    //ienumerator coroutine_updatetextforimprove()
     //{
     //    while (true)
     //    {
-    //        int enemyCount = 0;
-    //        int boidCount = 0;
-    //        foreach (Flock flock in ImproveFlockBehaviour.flocks)
+    //        int enemycount = 0;
+    //        int boidcount = 0;
+    //        foreach (flock flock in improveflockbehaviour.flocks)
     //        {
-    //            if (flock.isPredator)
-    //                enemyCount += flock.mAutonomous.Count;
+    //            if (flock.ispredator)
+    //                enemycount += flock.mautonomous.count;
     //            else
-    //                boidCount += flock.mAutonomous.Count;
+    //                boidcount += flock.mautonomous.count;
     //        }
-    //        textNumBoids.text = "Boids: " + boidCount.ToString();
-    //        textNumEnemies.text = "Predators: " + enemyCount.ToString();
-    //        yield return new WaitForSeconds(0.5f);
+    //        textnumboids.text = "boids: " + boidcount.tostring();
+    //        textnumenemies.text = "predators: " + enemycount.tostring();
+    //        yield return new waitforseconds(0.5f);
     //    }
     //}
 
