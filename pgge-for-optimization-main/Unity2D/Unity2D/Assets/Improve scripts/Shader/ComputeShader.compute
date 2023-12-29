@@ -1,17 +1,21 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
 
+public static int threadGroupSize = 1024;
+
 struct boid
 {
 	float3 velocity,
 	float3 position,
 }
 
-RWStructuredBuffer<boid> boidData;
+RWStructuredBuffer<boid> boidsData;
 
-[numthreads(64,1,1)]
+int numBoids;
+
+
+[numthreads(threadGroupSize,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-	boidData[id.x].position += float3(0, 5, 0);
-
+	
 }
