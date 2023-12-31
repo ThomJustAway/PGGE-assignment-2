@@ -1,0 +1,83 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CalculatingFlocking
+
+struct Boid
+{
+    uint id;
+    float3 position;
+    float3 targetDirection;
+    float speed;
+    float targetSpeed;
+};
+
+bool useCohesionRule;
+bool useAlignmentRule;
+bool useSeparationRule;
+float WEIGHT_COHESION;
+float WEIGHT_SEPERATION;
+float WEIGHT_ALIGNMENT;
+float visibility;
+float separationDistance;
+uint sizeOfFlock;
+
+RWStructuredBuffer<Boid> otherBoids;
+RWStructuredBuffer<Boid> currentBatch;
+
+[numthreads(1000, 1, 1)]
+void CalculatingFlocking(uint3 id : SV_DispatchThreadID)
+{
+    Boid curr = currentBatch[id.x];
+    float3 flockDir = float3(0, 0, 0);
+    float3 separationDir = float3(0, 0, 0);
+
+    float speed = 0.0f;
+    float separationSpeed = 0.0f;
+
+    uint count = 0;
+    float3 steerPos = float3(0, 0, 0);
+
+    for (uint j = 0; j < sizeOfFlock; ++j)
+    {
+        if (curr.id == j) continue;
+
+        Boid other = otherBoids[j];
+        float3 directionFromCurrToOther = curr.position - other.position;
+        float dist = length(directionFromCurrToOther);
+
+        if (dist < visibility)
+        {
+            speed += other.speed;
+            flockDir += other.targetDirection;
+            steerPos += other.position;
+            count++;
+        }
+
+        if (dist < separationDistance)
+        {
+            float3 targetDirection = normalize(directionFromCurrToOther);
+
+            separationDir += targetDirection;
+            separationSpeed += dist * WEIGHT_SEPERATION;
+        }
+    }
+
+    if (count > 0)
+    {
+        speed = speed / count;
+        flockDir = flockDir / count;
+
+        flockDir = normalize(flockDir);
+
+        steerPos = steerPos / count;
+    }
+
+    float3 flockDirection = (steerPos - curr.position) * (useCohesionRule ? WEIGHT_COHESION : 0.0f);
+
+    float3 separationDirection = separationDir * separationSpeed * (useSeparationRule ? WEIGHT_SEPERATION : 0.0f);
+
+    float3 alignmentDirection = flockDir * speed * (useAlignmentRule ? WEIGHT_ALIGNMENT : 0.0f);
+
+    curr.targetDirection = alignmentDirection + separationDirection + flockDirection;
+    currentBatch[id.x] = curr;
+}
+

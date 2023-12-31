@@ -1,4 +1,5 @@
 using Assets.Improve_scripts.Scripts;
+using experimenting;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -9,8 +10,11 @@ public class UI : MonoBehaviour
     public Text textNumBoids;
     public Text textNumEnemies;
 
-    public FlockBehaviour flockbehaviour;
-    public FlockBehaviourImprove improveflockbehaviour;
+    public bool original = false;
+
+    public FlockBehaviour flockbehaviourOriginal;
+    //public FlockBehaviourImprove improveflockbehaviour;
+    public FlockBehaviourImproveV2 flockBehaviour;
     void Start()
     {
         StartCoroutine(coroutine_updatetext());
@@ -20,14 +24,27 @@ public class UI : MonoBehaviour
     {
         while (true)
         {
-            int enemycount = 0;
-            int boidcount = 0;
-            foreach(var flock in  flockbehaviour.flocks) {
-                boidcount += flock.numBoids;
+            if (original)
+            {
+                int boidcount = 0;
+                foreach (var flock in flockbehaviourOriginal.flocks)
+                {
+                    boidcount += flock.numBoids;
+                }
+                textNumBoids.text = "boids: " + boidcount.ToString();
+                //textNumEnemies.text = "predators: " + enemycount.tostring();
+                yield return new WaitForSeconds(0.5f);
             }
-            textNumBoids.text = "boids: " + boidcount.ToString();
-            //textNumEnemies.text = "predators: " + enemycount.tostring();
-            yield return new WaitForSeconds(0.5f);
+            else{
+                //int enemycount = 0;
+                int boidcount = 0;
+                foreach(var flock in flockBehaviour.flocks) {
+                    boidcount += flock.numBoids;
+                }
+                textNumBoids.text = "boids: " + boidcount.ToString();
+                //textNumEnemies.text = "predators: " + enemycount.tostring();
+                yield return new WaitForSeconds(0.5f);
+            }
         }
     }
 

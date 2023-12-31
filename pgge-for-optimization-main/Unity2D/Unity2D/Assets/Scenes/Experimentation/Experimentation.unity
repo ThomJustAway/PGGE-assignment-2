@@ -900,7 +900,7 @@ MonoBehaviour:
     useCohesionRule: 1
     useSeparationRule: 1
     useFleeOnSightEnemyRule: 1
-    useAvoidObstaclesRule: 1
+    useAvoidObstaclesRule: 0
     WEIGHT_RANDOM: 1
     WEIGHT_ALIGNMENT: 2
     WEIGHT_COHESION: 3
@@ -909,7 +909,7 @@ MonoBehaviour:
     WEIGHT_AVOID_OBSTICLES: 10
     separationDistance: 5
     enemySeparationDistance: 5
-    visibility: 20
+    visibility: 10
     bounceWall: 1
     mAutonomous: []
 --- !u!4 &583854983
@@ -1317,7 +1317,7 @@ GameObject:
   - component: {fileID: 875704704}
   - component: {fileID: 875704706}
   m_Layer: 0
-  m_Name: FlockBehaviour
+  m_Name: FlockBehaviour (dont touch)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

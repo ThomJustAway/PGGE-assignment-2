@@ -16,6 +16,10 @@ using UnityEngine.EventSystems;
 //[BurstCompile]
 namespace experimenting
 {
+    //current the performance
+    //1000 boids: 89 - 90fps
+    //3000 boids: 40 - 46FPS
+    //6000 boids: 20 - 29FPS
     public class FlockBehaviourImproveV2 : MonoBehaviour
     {
         List<Obstacle> mObstacles = new List<Obstacle>();
@@ -32,7 +36,9 @@ namespace experimenting
 
         public int BoidIncr = 100; //the number of boid to spawn
         public bool useFlocking = false;
-        public int BatchSize = 100;
+        public int BatchSize = 1000;
+
+        [SerializeField] private ComputeShader flockingCalculation;
 
         public List<Flock> flocks = new List<Flock>();
         void Reset()
@@ -40,8 +46,6 @@ namespace experimenting
             flocks = new List<Flock>() { new Flock() };
         }
         
-
-
         void Start()
         {
             SetObstacles();
@@ -66,8 +70,8 @@ namespace experimenting
             // Randomize obstacles placement.
             for (int i = 0; i < Obstacles.Length; ++i)
             {
-                float x = Random.Range(Bounds.bounds.min.x, Bounds.bounds.max.x);
-                float y = Random.Range(Bounds.bounds.min.y, Bounds.bounds.max.y);
+                float x = UnityEngine.Random.Range(Bounds.bounds.min.x, Bounds.bounds.max.x);
+                float y = UnityEngine.Random.Range(Bounds.bounds.min.y, Bounds.bounds.max.y);
                 //get random position
 
                 Obstacles[i].transform.position = new Vector3(x, y, 0.0f); //set position of the obstacles
@@ -97,6 +101,7 @@ namespace experimenting
 
         void Update()
         {
+            //move the boids here!
             HandleInputs();
             Rule_CrossBorder();
             Rule_CrossBorder_Obstacles();
@@ -148,6 +153,12 @@ namespace experimenting
 
         #region coroutine
         //this function is big o of n^2 , n^3 if u consider the excute function
+
+        //IEnumerator MoveBoids()
+        //{
+        //    //use unity job system here!.
+        //}
+
         IEnumerator Coroutine_Flocking()
         {
             while (true)
@@ -157,15 +168,80 @@ namespace experimenting
                     foreach (Flock flock in flocks)
                     {
                         List<Autonomous> autonomousList = flock.mAutonomous;
-                        //get all the boid from the flock
-                        for (int i = 0; i < autonomousList.Count; ++i)
+                        //store the rules into data for compute shader
+                        Boid[] allTheBoids = new Boid[autonomousList.Count];
+
+                        for(uint i = 0; i < allTheBoids.Length; i++)
                         {
-                            Execute(flock, i);
-                            if (i % BatchSize == 0)
+                            var currentBoid = autonomousList[(int)i];
+                            allTheBoids[i] = new Boid(
+                                i,
+                                currentBoid.transform.position,
+                                currentBoid.TargetDirection,
+                                currentBoid.Speed
+                                );
+                        }
+
+                        List<Boid> partitionBoidsList = new List<Boid>();
+
+                        for (uint i = 0; i < autonomousList.Count; ++i)
+                        {
+                            var currentBoid = autonomousList[(int)i];
+                            partitionBoidsList.Add(new Boid(
+                                i,
+                                currentBoid.transform.position,
+                                currentBoid.TargetDirection,
+                                currentBoid.Speed
+                                ));
+
+                            //partition to boids by 100s
+                            if (i % BatchSize == BatchSize - 1 || 
+                                i == autonomousList.Count - 1) //partition to 100;
                             {
-                                //yield back if it done more than a 100 boids
+                                ComputeBuffer otherBoids = new ComputeBuffer(allTheBoids.Length , Boid.sizeOfData());
+                                otherBoids.SetData(allTheBoids);
+
+                                ComputeBuffer currentBathBoids = new ComputeBuffer(partitionBoidsList.Count, Boid.sizeOfData());
+                                currentBathBoids.SetData(partitionBoidsList);
+
+                                int kernelIndex = flockingCalculation.FindKernel("CalculatingFlocking");
+
+                                flockingCalculation.SetBuffer(kernelIndex, "otherBoids", otherBoids);
+                                flockingCalculation.SetBuffer(kernelIndex, "currentBatch", currentBathBoids);
+                                //setting the float
+                                flockingCalculation.SetFloat("WEIGHT_COHESION" , flock.WEIGHT_COHESION);
+                                flockingCalculation.SetFloat("WEIGHT_SEPERATION", flock.WEIGHT_SEPERATION);
+                                flockingCalculation.SetFloat("WEIGHT_ALIGNMENT", flock.WEIGHT_ALIGNMENT);
+                                flockingCalculation.SetFloat("visibility", flock.visibility);
+                                flockingCalculation.SetFloat("separationDistance", flock.separationDistance);
+                                flockingCalculation.SetFloat("sizeOfFlock", autonomousList.Count);
+
+                                flockingCalculation.SetBool("useCohesionRule", flock.useCohesionRule);
+                                flockingCalculation.SetBool("useAlignmentRule", flock.useAlignmentRule);
+                                flockingCalculation.SetBool("useSeparationRule", flock.useSeparationRule);
+
+                                //calculate the number of threads required
+                                int numberOfThreads = partitionBoidsList.Count % 1000;
+                                if (numberOfThreads == 0) numberOfThreads = 1000;
+
+                                flockingCalculation.Dispatch(kernelIndex, numberOfThreads, 1, 1);
+
+                                Boid[] outputContainer = new Boid[partitionBoidsList.Count];
+                                currentBathBoids.GetData(outputContainer);
+
+                                foreach (var outputContainerItem in outputContainer)
+                                {
+                                    autonomousList[(int)outputContainerItem.id].TargetDirection = 
+                                        outputContainerItem.targetDirection;
+
+                                }
+                                //release the data
+                                otherBoids.Release();
+                                currentBathBoids.Release();
                                 yield return null;
                             }
+
+                            
                         }
                         yield return null;
                     }
@@ -173,110 +249,107 @@ namespace experimenting
                 yield return new WaitForSeconds(TickDuration);
             }
         }
-        void Execute(Flock flock, int i)
-        {
-            Vector3 flockDir = Vector3.zero;
-            Vector3 separationDir = Vector3.zero;
-            //Vector3 cohesionDir = Vector3.zero;
+        //void Execute(Flock flock, int i)
+        //{
+        //    Vector3 flockDir = Vector3.zero;
+        //    Vector3 separationDir = Vector3.zero;
+        //    //Vector3 cohesionDir = Vector3.zero;
 
-            float speed = 0.0f;
-            float separationSpeed = 0.0f;
+        //    float speed = 0.0f;
+        //    float separationSpeed = 0.0f;
 
-            int count = 0;
-            int separationCount = 0;
+        //    int count = 0;
 
-            Vector3 steerPos = Vector3.zero;
+        //    Vector3 steerPos = Vector3.zero;
 
-            Autonomous curr = flock.mAutonomous[i];
+        //    Autonomous curr = flock.mAutonomous[i];
 
-            for (int j = 0; j < flock.numBoids; ++j)
-            {
-                //in this for loop, it will go through all the 
-                //boid in the game and see if there is any boids
-                //that is close to the selected boids
+        //    for (int j = 0; j < flock.numBoids; ++j)
+        //    {
+        //        //in this for loop, it will go through all the 
+        //        //boid in the game and see if there is any boids
+        //        //that is close to the selected boids
 
-                if (i != j) continue; //if not the same then move on
+        //        if (i == j) continue; //if not the same then move on
 
-                Autonomous other = flock.mAutonomous[j];
-                float dist = (curr.transform.position - other.transform.position).magnitude;
+        //        Autonomous other = flock.mAutonomous[j];
+        //        float dist = (curr.transform.position - other.transform.position).magnitude;
 
-                if (dist < flock.visibility)
-                { //if it is around the current boid visible range (circle)
-                    speed += other.Speed;
-                    flockDir += other.TargetDirection;
-                    steerPos += other.transform.position;
-                    count++; //use this count to find the average 
-                }
-                if (dist < flock.separationDistance)
-                {//if the distance is lesser than the acceptable range
+        //        if (dist < flock.visibility)
+        //        { //if it is around the current boid visible range (circle)
+        //            speed += other.Speed;
+        //            flockDir += other.TargetDirection;
+        //            steerPos += other.transform.position;
+        //            count++; //use this count to find the average 
+        //        }
+        //        if (dist < flock.separationDistance)
+        //        {//if the distance is lesser than the acceptable range
 
-                    //usually this if statement is true so you
-                    //can remove this all together
+        //            //usually this if statement is true so you
+        //            //can remove this all together
 
-                    Vector3 targetDirection = (
-                    curr.transform.position -
-                    other.transform.position).normalized;
-                    //get direction vector from other to current
+        //            Vector3 targetDirection = (
+        //            curr.transform.position -
+        //            other.transform.position).normalized;
+        //            //get direction vector from other to current
 
-                    separationDir += targetDirection;
-                    separationSpeed += dist * flock.WEIGHT_SEPERATION;
-                    //how much needs to be seperated base on the distance
-                    //this formula can be tweak where the shorter the distance
-                    //the more speed required to seperate the boids
-                }
-            }
+        //            separationDir += targetDirection;
+        //            separationSpeed += dist * flock.WEIGHT_SEPERATION;
+        //            //how much needs to be seperated base on the distance
+        //            //this formula can be tweak where the shorter the distance
+        //            //the more speed required to seperate the boids
+        //        }
+        //    }
 
-            if (count > 0)
-            {
-                speed = speed / count;
-                flockDir = flockDir / count;
-                //getting the average speed and direction the flock needs to go
+        //    if (count > 0)
+        //    {
+        //        speed = speed / count;
+        //        flockDir = flockDir / count;
+        //        //getting the average speed and direction the flock needs to go
 
-                flockDir.Normalize();
+        //        flockDir.Normalize();
 
-                steerPos = steerPos / count;
-                //finding the average position that the flock is going
-            }
+        //        steerPos = steerPos / count;
+        //        //finding the average position that the flock is going
+        //    }
 
-            //code below is redundant as separation count is always 0
-            //could open it again if u want to add separation count to the game
-            //if (separationCount > 0)
-            //    print("hello");
-            //    separationSpeed = separationSpeed / count;
-            //    separationDir = separationDir / separationSpeed;
-            //    separationDir.Normalize();
-            //}
+        //    //code below is redundant as separation count is always 0
+        //    //could open it again if u want to add separation count to the game
+        //    //if (separationCount > 0)
+        //    //    print("hello");
+        //    //    separationSpeed = separationSpeed / count;
+        //    //    separationDir = separationDir / separationSpeed;
+        //    //    separationDir.Normalize();
+        //    //}
 
-            Vector3 flockDirection = (steerPos - curr.transform.position) *
-                (flock.useCohesionRule ? flock.WEIGHT_COHESION : 0.0f);
+        //    Vector3 flockDirection = (steerPos - curr.transform.position) *
+        //        (flock.useCohesionRule ? flock.WEIGHT_COHESION : 0.0f);
 
-            /*
-            get the direction of the flock intended outcome
-            if the cohesion is needed, then multiply it with
-            the weight, else just ignore it
-            */
+        //    /*
+        //    get the direction of the flock intended outcome
+        //    if the cohesion is needed, then multiply it with
+        //    the weight, else just ignore it
+        //    */
 
-            Vector3 separationDirection = separationDir * separationSpeed *
-                (flock.useSeparationRule ? flock.WEIGHT_SEPERATION : 0.0f);
-            /*
-             Get the seperation direction need to seperate from the boid nearby
-             This direction would be ignored if there is no seperation rule is not stated
-             */
+        //    Vector3 separationDirection = separationDir * separationSpeed *
+        //        (flock.useSeparationRule ? flock.WEIGHT_SEPERATION : 0.0f);
+        //    /*
+        //     Get the seperation direction need to seperate from the boid nearby
+        //     This direction would be ignored if there is no seperation rule is not stated
+        //     */
 
-            Vector3 alignmentDirection = flockDir * speed *
-                (flock.useAlignmentRule ? flock.WEIGHT_ALIGNMENT : 0.0f);
-            /*
-             Where the boid intended wants to go. 
-             */
+        //    Vector3 alignmentDirection = flockDir * speed *
+        //        (flock.useAlignmentRule ? flock.WEIGHT_ALIGNMENT : 0.0f);
+        //    /*
+        //     Where the boid intended wants to go. 
+        //     */
 
+        //    curr.TargetDirection = alignmentDirection +
+        //        separationDirection +
+        //        flockDirection;
+        //    //add this together to form the final direction needed for the flock.
 
-            curr.TargetDirection = alignmentDirection +
-                separationDirection +
-                flockDirection;
-            //add this together to form the final direction needed for the flock.
-
-        }
-
+        //}
         IEnumerator Coroutine_Random()
         {
             while (true)

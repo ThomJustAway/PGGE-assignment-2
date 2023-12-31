@@ -30,41 +30,41 @@ namespace experimenting
         }
 
         public void Update()
-            {
-                RotateGameObjectBasedOnTargetDirection();
-                MoveAutonomouse();
-            }
+        {
+            RotateGameObjectBasedOnTargetDirection();
+            MoveAutonomous();
+        }
 
-            private void MoveAutonomouse()
-            {
-                Speed = Speed + ((TargetSpeed - Speed) / 10.0f) * Time.deltaTime;
+        private void MoveAutonomous()
+        {
+            Speed = Speed + ((TargetSpeed - Speed) / 10.0f) * Time.deltaTime;
 
-                if (Speed > MaxSpeed) //cap the next speed
-                    Speed = MaxSpeed;
+            if (Speed > MaxSpeed) //cap the next speed
+                Speed = MaxSpeed;
 
-                transform.Translate(Vector3.right * Speed * Time.deltaTime, Space.Self);
-            }
+            transform.Translate(Vector3.right * Speed * Time.deltaTime, Space.Self);
+        }
 
-            private void RotateGameObjectBasedOnTargetDirection()
-            {
-                Vector3 targetDirection = TargetDirection.normalized;
-                //get the normalize value of the target direction
-                Vector3 rotatedVectorToTarget =
-                    Quaternion.Euler(0, 0, 90) *
-                    targetDirection;
-                //Rotate around target direction + 90 degree because that is the boids starting position
+        private void RotateGameObjectBasedOnTargetDirection()
+        {
+            Vector3 targetDirection = TargetDirection.normalized;
+            //get the normalize value of the target direction
+            Vector3 rotatedVectorToTarget =
+                Quaternion.Euler(0, 0, 90) *
+                targetDirection;
+            //Rotate around target direction + 90 degree because that is the boids starting position
 
-                Quaternion targetRotation = Quaternion.LookRotation(
-                    forward: Vector3.forward, //want to rotate the object through the z axis
-                    upwards: rotatedVectorToTarget);
-                //then create a rotation based of the vector. 
-                //from: vector3.up to: rotatedVectorToTarget
+            Quaternion targetRotation = Quaternion.LookRotation(
+                forward: Vector3.forward, //want to rotate the object through the z axis
+                upwards: rotatedVectorToTarget);
+            //then create a rotation based of the vector. 
+            //from: vector3.up to: rotatedVectorToTarget
 
-                transform.rotation = Quaternion.RotateTowards(
-                    transform.rotation,
-                    targetRotation,
-                    RotationSpeed * Time.deltaTime); //give out the next rotation
-            }
+            transform.rotation = Quaternion.RotateTowards(
+                transform.rotation,
+                targetRotation,
+                RotationSpeed * Time.deltaTime); //give out the next rotation
+        }
 
         //private IEnumerator Coroutine_LerpTargetSpeed(
         //  float start,
@@ -101,7 +101,6 @@ namespace experimenting
         //  }
         //  Speed = TargetSpeed;
         //}
-
         void SetRandomSpeed()
         {
             Speed = Random.Range(0.0f, MaxSpeed);
