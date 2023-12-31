@@ -51,8 +51,8 @@ namespace experimenting
         public float visibility = 20.0f; //visibility is for both alignment and Cohesion rules
         public bool bounceWall = true;
 
-        [HideInInspector]
-        public List<Autonomous> mAutonomous;
+        //[HideInInspector]
+        //public List<Autonomous> mAutonomous;
 
         //list of game object for the boids
         // plus the data of each boids which are correlated with index

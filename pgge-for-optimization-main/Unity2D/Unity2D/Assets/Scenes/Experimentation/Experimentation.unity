@@ -432,8 +432,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   textNumBoids: {fileID: 1944975884}
   textNumEnemies: {fileID: 1250291134}
-  flockbehaviour: {fileID: 875704704}
-  improveflockbehaviour: {fileID: 0}
+  original: 0
+  flockbehaviourOriginal: {fileID: 0}
+  flockBehaviour: {fileID: 583854982}
 --- !u!1 &123748669
 GameObject:
   m_ObjectHideFlags: 0
@@ -887,6 +888,7 @@ MonoBehaviour:
   BoidIncr: 100
   useFlocking: 1
   BatchSize: 100
+  flockingCalculation: {fileID: 7200000, guid: 22e0c7ce015123347a3a32d6fbca95ba, type: 3}
   flocks:
   - PrefabBoid: {fileID: 389496565818785944, guid: 1074f6b4ae3887748a6c743265da0ee9, type: 3}
     name: Plane
@@ -912,6 +914,7 @@ MonoBehaviour:
     visibility: 10
     bounceWall: 1
     mAutonomous: []
+    boidsGameObject: []
 --- !u!4 &583854983
 Transform:
   m_ObjectHideFlags: 0

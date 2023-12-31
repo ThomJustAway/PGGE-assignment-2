@@ -269,6 +269,5 @@ namespace Assets.Improve_scripts.Jobs
                 rules.RotationSpeed * deltaTime); //give out the next rotation
         }
 
-        
     }
 }
