@@ -433,7 +433,7 @@ MonoBehaviour:
   textNumBoids: {fileID: 1944975884}
   textNumEnemies: {fileID: 1250291134}
   original: 0
-  flockbehaviourOriginal: {fileID: 0}
+  flockbehaviourOriginal: {fileID: 875704704}
   flockBehaviour: {fileID: 583854982}
 --- !u!1 &123748669
 GameObject:
@@ -890,9 +890,9 @@ MonoBehaviour:
   BatchSize: 100
   flockingCalculation: {fileID: 7200000, guid: 22e0c7ce015123347a3a32d6fbca95ba, type: 3}
   flocks:
-  - PrefabBoid: {fileID: 389496565818785944, guid: 1074f6b4ae3887748a6c743265da0ee9, type: 3}
+  - PrefabBoid: {fileID: 389496565818785944, guid: e95d149e69bea014491161bcc9bd3575, type: 3}
     name: Plane
-    numBoids: 10
+    numBoids: 1
     isPredator: 0
     colour: {r: 1, g: 1, b: 1, a: 0}
     maxSpeed: 20
@@ -913,8 +913,7 @@ MonoBehaviour:
     enemySeparationDistance: 5
     visibility: 10
     bounceWall: 1
-    mAutonomous: []
-    boidsGameObject: []
+    boidsTransform: []
 --- !u!4 &583854983
 Transform:
   m_ObjectHideFlags: 0

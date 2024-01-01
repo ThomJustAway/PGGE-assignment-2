@@ -57,7 +57,7 @@ namespace experimenting
         //list of game object for the boids
         // plus the data of each boids which are correlated with index
 
-        [HideInInspector] public List<GameObject> boidsGameObject;
+        [HideInInspector] public List<Transform> boidsTransform;
         [HideInInspector] public List<Boid> boidsInformation;
 
     }

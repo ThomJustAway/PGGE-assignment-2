@@ -5,6 +5,10 @@ using Unity.Burst;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using Unity.Mathematics;
+using Unity.Jobs;
+using Unity.Collections;
+using UnityEngine.Jobs;
+//using Assets.Experimenting.Scripts.Jobs;
 //what does this script current contain
 
 /*
@@ -41,8 +45,16 @@ namespace experimenting
         [SerializeField] private ComputeShader flockingCalculation;
 
         public List<Flock> flocks = new List<Flock>();
+
+        private JobHandle movementJob;
+        private TransformAccessArray temporaryTransformStorageContainer;
+        private NativeArray<Boid> boidsNativeArray;
+
+
         void Reset()
         {
+            boidsNativeArray.Dispose();
+            temporaryTransformStorageContainer.Dispose();
             flocks = new List<Flock>() { new Flock() };
         }
         
@@ -58,12 +70,22 @@ namespace experimenting
             //probably have to change this to something that runs
             //on the worker thread using burst compile plus job system
 
-            StartCoroutine(Coroutine_Flocking());
-            StartCoroutine(Coroutine_Random());
-            StartCoroutine(Coroutine_AvoidObstacles());
-            StartCoroutine(Coroutine_Random_Motion_Obstacles());
+            //StartCoroutine(Coroutine_Flocking());
+            //StartCoroutine(Coroutine_Random());
+            //StartCoroutine(Coroutine_AvoidObstacles());
+            //StartCoroutine(Coroutine_Random_Motion_Obstacles());
+            //StartCoroutine(MoveBoids());
+
+            StartCoroutine(MainCoroutine());
 
             //StartCoroutine(Coroutine_SeparationWithEnemies());
+        }
+        void Update()
+        {
+            //move the boids here!
+            HandleInputs();
+            //Rule_CrossBorder();
+            Rule_CrossBorder_Obstacles();
         }
 
         private void SetObstacles()
@@ -90,7 +112,7 @@ namespace experimenting
 
         void CreateFlock(Flock flock)
         {
-            flock.boidsGameObject = new List<GameObject>();
+            flock.boidsTransform = new List<Transform>();
             flock.boidsInformation = new List<Boid>();
             for (int i = 0; i < flock.numBoids; ++i)
             {
@@ -100,14 +122,6 @@ namespace experimenting
                 AddBoid(x, y, flock);
             }
         }//they are the groups of boid (flock)
-
-        void Update()
-        {
-            //move the boids here!
-            HandleInputs();
-            //Rule_CrossBorder();
-            Rule_CrossBorder_Obstacles();
-        }
 
         void HandleInputs()
         {
@@ -138,16 +152,16 @@ namespace experimenting
         void AddBoid(float x, float y, Flock flock)
         {
             GameObject obj = Instantiate(flock.PrefabBoid);
-            obj.name = "Boid_" + flock.name + "_" + flock.boidsGameObject.Count;
+            obj.name = "Boid_" + flock.name + "_" + flock.boidsTransform.Count;
             obj.transform.position = new Vector3(x, y, 0.0f);
-            Boid boid = new Boid( (uint)flock.boidsGameObject.Count
+            Boid boid = new Boid( (uint)flock.boidsTransform.Count
                 , obj.transform.position,
                 GetRandomDirection(),
                 GetRandomSpeed(flock.maxSpeed));
 
             //the index of the array is what makes the correlation between the two
             flock.boidsInformation.Add(boid);
-            flock.boidsGameObject.Add(obj);
+            flock.boidsTransform.Add(obj.transform);
             //Autonomous boid = obj.GetComponent<Autonomous>();
 
 
@@ -156,7 +170,8 @@ namespace experimenting
 
         float GetRandomSpeed(float MaxSpeed)
         {
-            return UnityEngine.Random.Range(0.0f, MaxSpeed);
+            //return UnityEngine.Random.Range(0.0f, MaxSpeed);
+            return MaxSpeed;
         }
 
         float3 GetRandomDirection()
@@ -174,13 +189,67 @@ namespace experimenting
         }
 
         #region coroutine
+
+        IEnumerator MainCoroutine()
+        {
+            while (true)
+            {
+                yield return Coroutine_Flocking();
+                yield return Coroutine_Random();
+                yield return Coroutine_AvoidObstacles();
+                yield return Coroutine_Random_Motion_Obstacles();
+                yield return MoveBoids();
+            }
+        }
+
+        IEnumerator MoveBoids()
+        {
+            //use unity job system here!.
+            while (true)
+            {
+                foreach(var flock in flocks)
+                {
+                    //execute movement here
+                    temporaryTransformStorageContainer = new TransformAccessArray(flock.boidsTransform.ToArray());
+                    boidsNativeArray = new NativeArray<Boid>(flock.boidsInformation.ToArray(), Allocator.TempJob);
+
+                    for (int i = 0; i < flock.boidsInformation.Count; i++)
+                    {
+                        print($"flockBehaviour index {i} position: {boidsNativeArray[i].position}");
+                    }
+
+                    BoidMovementJob boidMovementJob = new BoidMovementJob()
+                    {
+                        deltaTime = Time.deltaTime,
+                        boidsData = boidsNativeArray,
+                        RotationSpeed = flock.rotationSpeed,
+                        MaxSpeed = flock.maxSpeed,
+                        boxBound = Bounds.bounds,
+                        canBounce = flock.bounceWall
+                    };
+
+                    movementJob = boidMovementJob.Schedule(temporaryTransformStorageContainer);
+                    yield return null;
+                    //when the next frame comes
+                    movementJob.Complete();
+
+                    temporaryTransformStorageContainer.Dispose();
+                    flock.boidsInformation = boidsNativeArray.ToList(); //update the boids information
+                    foreach(var info in flock.boidsInformation)
+                    {
+                        print($"boid id{info.id} newPosition {info.position} Current speed {info.speed} " +
+                            $"current target direction {info.targetDirection}");
+                    }
+
+                    boidsNativeArray.Dispose();
+
+                }
+                //yield return new WaitForSeconds(TickDuration);
+
+            }
+        }
+
         //this function is big o of n^2 , n^3 if u consider the excute function
-
-        //IEnumerator MoveBoids()
-        //{
-        //    //use unity job system here!.
-        //}
-
         IEnumerator Coroutine_Flocking()
         {
             while (true)
@@ -191,9 +260,6 @@ namespace experimenting
                     {
                         //store the rules into data for compute shader
                         Boid[] allTheBoids = flock.boidsInformation.ToArray();
-
-                       
-
                         List<Boid> partitionBoidsList = new List<Boid>();
 
                         for (uint i = 0; i < allTheBoids.Length; ++i)
@@ -243,7 +309,6 @@ namespace experimenting
 
                                 foreach (var outputContainerItem in outputContainer)
                                 {
-                                    
                                     flock.boidsInformation[(int)outputContainerItem.id] = outputContainerItem;
                                 }
                                 //release the data
@@ -259,6 +324,7 @@ namespace experimenting
                 yield return new WaitForSeconds(TickDuration);
             }
         }
+
         //void Execute(Flock flock, int i)
         //{
         //    Vector3 flockDir = Vector3.zero;
@@ -377,11 +443,9 @@ namespace experimenting
         }
         void DoRandomFlockBehaviour(Flock flock)
         {
-            //List<Autonomous> autonomousList = flock.mAutonomous;
-            Boid[] boids = flock.boidsInformation.ToArray();
-            for (int i = 0; i < boids.Length; ++i)
+            for (int i = 0; i < flock.boidsInformation.Count; ++i)
             {
-                Boid currentBoid = boids[i]; //make a copy
+                Boid currentBoid = flock.boidsInformation[i]; //make a copy
                 float rand = UnityEngine.Random.Range(0.0f, 1.0f);
                 currentBoid.targetDirection = NormalizeFloat3(currentBoid.targetDirection);
                 float angle = Mathf.Atan2(currentBoid.targetDirection.y, currentBoid.targetDirection.x);
@@ -400,15 +464,15 @@ namespace experimenting
                 dir.y = Mathf.Sin(angle);
 
                 currentBoid.targetDirection += (float3)dir * flock.WEIGHT_RANDOM;
-                currentBoid.targetDirection = NormalizeFloat3(boids[i].targetDirection);
+                currentBoid.targetDirection = NormalizeFloat3(currentBoid.targetDirection);
                 //Debug.Log(autonomousList[i].TargetDirection);
 
                 float speed = UnityEngine.Random.Range(1.0f, flock.maxSpeed);
                 currentBoid.targetSpeed += speed * flock.WEIGHT_SEPERATION;
                 currentBoid.targetSpeed /= 2.0f;
-                //average the speed for the boid
 
-                boids[i] = currentBoid;
+                //average the speed for the boid
+                flock.boidsInformation[i] = currentBoid;
             }
         }
 
@@ -450,6 +514,7 @@ namespace experimenting
                     }
                 }
             }
+            flock.boidsInformation = boids.ToList(); //update the list
         }
 
         //IEnumerator Coroutine_SeparationWithEnemies()
