@@ -51,7 +51,6 @@ public class ThirdPersonCamera : MonoBehaviour
         mThirdPersonCameraDict.Add(CameraType.Follow_Track_Pos, new TPCFollowTrackPosition(transform, mPlayer));
         mThirdPersonCameraDict.Add(CameraType.Follow_Track_Pos_Rot, new TPCFollowTrackPositionAndRotation(transform, mPlayer));
         mThirdPersonCameraDict.Add(CameraType.Topdown, new TPCTopDown(transform, mPlayer));
-
         mThirdPersonCameraDict.Add(CameraType.Follow_Independent, new TPCFollowIndependentRotation(transform, mPlayer));
 
         mThirdPersonCamera = mThirdPersonCameraDict[mCameraType];

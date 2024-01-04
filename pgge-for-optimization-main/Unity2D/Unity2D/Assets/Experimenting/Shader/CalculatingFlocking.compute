@@ -13,15 +13,60 @@ struct Boid
 bool useCohesionRule;
 bool useAlignmentRule;
 bool useSeparationRule;
+bool useRandomRule;
+
 float WEIGHT_COHESION;
 float WEIGHT_SEPERATION;
 float WEIGHT_ALIGNMENT;
+float WEIGHT_RANDOM;
+
+float maxSpeed;
 float visibility;
 float separationDistance;
+
 uint sizeOfFlock;
 
 RWStructuredBuffer<Boid> otherBoids;
 RWStructuredBuffer<Boid> currentBatch;
+
+float random(float2 seed, float minValue, float maxValue)
+{
+    return lerp(minValue, maxValue, frac(sin(dot(seed, float2(12.9898, 78.233))) * 43758.5453));
+}
+
+Boid DoRandomFlockBehaviour(Boid currentBoid)
+{
+    float2 randomSeed = float2(currentBoid.position.x , currentBoid.targetDirection.x);
+    float rand = random(randomSeed ,0.0f, 1.0f);
+
+    currentBoid.targetDirection = normalize(currentBoid.targetDirection);
+    float angle = atan2(currentBoid.targetDirection.y, currentBoid.targetDirection.x);
+
+    if (rand > 0.5f)
+    {
+        angle += radians(45.0f);
+    }
+    else
+    {
+        angle -= radians(45.0f);
+    }
+
+    float3 dir = float3(0, 0, 0);
+    dir.x = cos(angle);
+    dir.y = sin(angle);
+
+    currentBoid.targetDirection += dir * WEIGHT_RANDOM;
+    currentBoid.targetDirection = normalize(currentBoid.targetDirection);
+    //Debug.Log(autonomousList[i].TargetDirection);
+
+    float speed = random( randomSeed, 1.0f, maxSpeed);
+    currentBoid.targetSpeed += speed * WEIGHT_SEPERATION;
+    currentBoid.targetSpeed /= 2.0f;
+
+    //average the speed for the boid
+    return currentBoid;
+}
+
 
 [numthreads(1000, 1, 1)]
 void CalculatingFlocking(uint3 id : SV_DispatchThreadID)
@@ -35,7 +80,6 @@ void CalculatingFlocking(uint3 id : SV_DispatchThreadID)
 
     uint count = 0;
     float3 steerPos = float3(0, 0, 0);
-
     for (uint j = 0; j < sizeOfFlock; ++j)
     {
         if (curr.id == j) continue;
@@ -78,6 +122,11 @@ void CalculatingFlocking(uint3 id : SV_DispatchThreadID)
     float3 alignmentDirection = flockDir * speed * (useAlignmentRule ? WEIGHT_ALIGNMENT : 0.0f);
 
     curr.targetDirection = alignmentDirection + separationDirection + flockDirection;
+
+    if(useRandomRule)
+    {
+        curr = DoRandomFlockBehaviour(curr);
+    }
     currentBatch[id.x] = curr;
 }
 

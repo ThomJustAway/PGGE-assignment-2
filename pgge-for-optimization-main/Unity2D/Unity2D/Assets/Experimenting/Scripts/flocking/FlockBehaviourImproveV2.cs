@@ -8,6 +8,7 @@ using Unity.Mathematics;
 using Unity.Jobs;
 using Unity.Collections;
 using UnityEngine.Jobs;
+using System;
 //using Assets.Experimenting.Scripts.Jobs;
 //what does this script current contain
 
@@ -49,7 +50,7 @@ namespace experimenting
         private JobHandle movementJob;
         private TransformAccessArray temporaryTransformStorageContainer;
         private NativeArray<Boid> boidsNativeArray;
-
+        private Queue<Action> addingBoidsCallback;
 
         void Reset()
         {
@@ -60,6 +61,8 @@ namespace experimenting
         
         void Start()
         {
+            addingBoidsCallback = new Queue<Action>();
+
             SetObstacles();
 
             foreach (Flock flock in flocks)
@@ -70,15 +73,17 @@ namespace experimenting
             //probably have to change this to something that runs
             //on the worker thread using burst compile plus job system
 
-            //StartCoroutine(Coroutine_Flocking());
-            //StartCoroutine(Coroutine_Random());
+            StartCoroutine(Coroutine_Random_Motion_Obstacles());
+
+            StartCoroutine(MoveBoids());
+
+            StartCoroutine(Coroutine_Flocking());
             //StartCoroutine(Coroutine_AvoidObstacles());
-            //StartCoroutine(Coroutine_Random_Motion_Obstacles());
-            //StartCoroutine(MoveBoids());
+            //StartCoroutine(Coroutine_Random());
+            StartCoroutine(MoveBoids());
 
-            StartCoroutine(MainCoroutine());
 
-            //StartCoroutine(Coroutine_SeparationWithEnemies());
+            //StartCoroutine(Coroutine_SeparationWithEnemies()); // change this later
         }
         void Update()
         {
@@ -86,6 +91,15 @@ namespace experimenting
             HandleInputs();
             //Rule_CrossBorder();
             Rule_CrossBorder_Obstacles();
+        }
+
+        void HandleAddingOfBoids()
+        {
+            if (addingBoidsCallback.Count > 0)
+            {
+                var call = addingBoidsCallback.Dequeue();
+                call?.Invoke();
+            }
         }
 
         private void SetObstacles()
@@ -133,20 +147,21 @@ namespace experimenting
 
             if (Input.GetKeyDown(KeyCode.Space))
             {
-                AddBoids(BoidIncr);
+                addingBoidsCallback.Enqueue(AddBoids);
+                //AddBoids(BoidIncr);
             }
         }
 
-        void AddBoids(int count)
+        void AddBoids()
         {
-            for (int i = 0; i < count; ++i) //increase the boids by some constant
+            for (int i = 0; i < BoidIncr; ++i) //increase the boids by some constant
             {
                 float x = UnityEngine.Random.Range(Bounds.bounds.min.x, Bounds.bounds.max.x);
                 float y = UnityEngine.Random.Range(Bounds.bounds.min.y, Bounds.bounds.max.y);
 
                 AddBoid(x, y, flocks[0]); //only select the first boid to increment
             }
-            flocks[0].numBoids += count;
+            flocks[0].numBoids += BoidIncr;
         }
 
         void AddBoid(float x, float y, Flock flock)
@@ -183,24 +198,8 @@ namespace experimenting
             return new float3(dir.x,dir.y, 1);
         }
 
-        static float Distance(Autonomous a1, Autonomous a2)
-        {
-            return (a1.transform.position - a2.transform.position).magnitude;
-        }
 
         #region coroutine
-
-        IEnumerator MainCoroutine()
-        {
-            while (true)
-            {
-                yield return Coroutine_Flocking();
-                yield return Coroutine_Random();
-                yield return Coroutine_AvoidObstacles();
-                yield return Coroutine_Random_Motion_Obstacles();
-                yield return MoveBoids();
-            }
-        }
 
         IEnumerator MoveBoids()
         {
@@ -209,15 +208,11 @@ namespace experimenting
             {
                 foreach(var flock in flocks)
                 {
+                    HandleAddingOfBoids();
+
                     //execute movement here
                     temporaryTransformStorageContainer = new TransformAccessArray(flock.boidsTransform.ToArray());
                     boidsNativeArray = new NativeArray<Boid>(flock.boidsInformation.ToArray(), Allocator.TempJob);
-
-                    for (int i = 0; i < flock.boidsInformation.Count; i++)
-                    {
-                        print($"flockBehaviour index {i} position: {boidsNativeArray[i].position}");
-                    }
-
                     BoidMovementJob boidMovementJob = new BoidMovementJob()
                     {
                         deltaTime = Time.deltaTime,
@@ -229,20 +224,16 @@ namespace experimenting
                     };
 
                     movementJob = boidMovementJob.Schedule(temporaryTransformStorageContainer);
+                    //schedule the job for the worker threads to complete
+
                     yield return null;
                     //when the next frame comes
                     movementJob.Complete();
 
                     temporaryTransformStorageContainer.Dispose();
                     flock.boidsInformation = boidsNativeArray.ToList(); //update the boids information
-                    foreach(var info in flock.boidsInformation)
-                    {
-                        print($"boid id{info.id} newPosition {info.position} Current speed {info.speed} " +
-                            $"current target direction {info.targetDirection}");
-                    }
-
+                    
                     boidsNativeArray.Dispose();
-
                 }
                 //yield return new WaitForSeconds(TickDuration);
 
@@ -284,20 +275,25 @@ namespace experimenting
 
                                 int kernelIndex = flockingCalculation.FindKernel("CalculatingFlocking");
 
-                                flockingCalculation.SetBuffer(kernelIndex, "otherBoids", otherBoids);
-                                flockingCalculation.SetBuffer(kernelIndex, "currentBatch", currentBathBoids);
+                                flockingCalculation.SetBool("useCohesionRule", flock.useCohesionRule);
+                                flockingCalculation.SetBool("useAlignmentRule", flock.useAlignmentRule);
+                                flockingCalculation.SetBool("useSeparationRule", flock.useSeparationRule);
+                                flockingCalculation.SetBool("useRandomRule", flock.useRandomRule);
+
                                 //setting the float
                                 flockingCalculation.SetFloat("WEIGHT_COHESION" , flock.WEIGHT_COHESION);
                                 flockingCalculation.SetFloat("WEIGHT_SEPERATION", flock.WEIGHT_SEPERATION);
                                 flockingCalculation.SetFloat("WEIGHT_ALIGNMENT", flock.WEIGHT_ALIGNMENT);
+                                flockingCalculation.SetFloat("WEIGHT_RANDOM", flock.WEIGHT_RANDOM);
+
+                                flockingCalculation.SetFloat("maxSpeed", flock.maxSpeed);
                                 flockingCalculation.SetFloat("visibility", flock.visibility);
                                 flockingCalculation.SetFloat("separationDistance", flock.separationDistance);
+
                                 flockingCalculation.SetFloat("sizeOfFlock", allTheBoids.Length);
 
-                                flockingCalculation.SetBool("useCohesionRule", flock.useCohesionRule);
-                                flockingCalculation.SetBool("useAlignmentRule", flock.useAlignmentRule);
-                                flockingCalculation.SetBool("useSeparationRule", flock.useSeparationRule);
-
+                                flockingCalculation.SetBuffer(kernelIndex, "otherBoids", otherBoids);
+                                flockingCalculation.SetBuffer(kernelIndex, "currentBatch", currentBathBoids);
                                 //calculate the number of threads required
                                 int numberOfThreads = partitionBoidsList.Count % 1000;
                                 if (numberOfThreads == 0) numberOfThreads = 1000;
@@ -316,116 +312,13 @@ namespace experimenting
                                 currentBathBoids.Release();
                                 yield return null;
                             }
-                            
                         }
-                        yield return null;
                     }
                 }
                 yield return new WaitForSeconds(TickDuration);
             }
         }
 
-        //void Execute(Flock flock, int i)
-        //{
-        //    Vector3 flockDir = Vector3.zero;
-        //    Vector3 separationDir = Vector3.zero;
-        //    //Vector3 cohesionDir = Vector3.zero;
-
-        //    float speed = 0.0f;
-        //    float separationSpeed = 0.0f;
-
-        //    int count = 0;
-
-        //    Vector3 steerPos = Vector3.zero;
-
-        //    Autonomous curr = flock.mAutonomous[i];
-
-        //    for (int j = 0; j < flock.numBoids; ++j)
-        //    {
-        //        //in this for loop, it will go through all the 
-        //        //boid in the game and see if there is any boids
-        //        //that is close to the selected boids
-
-        //        if (i == j) continue; //if not the same then move on
-
-        //        Autonomous other = flock.mAutonomous[j];
-        //        float dist = (curr.transform.position - other.transform.position).magnitude;
-
-        //        if (dist < flock.visibility)
-        //        { //if it is around the current boid visible range (circle)
-        //            speed += other.Speed;
-        //            flockDir += other.TargetDirection;
-        //            steerPos += other.transform.position;
-        //            count++; //use this count to find the average 
-        //        }
-        //        if (dist < flock.separationDistance)
-        //        {//if the distance is lesser than the acceptable range
-
-        //            //usually this if statement is true so you
-        //            //can remove this all together
-
-        //            Vector3 targetDirection = (
-        //            curr.transform.position -
-        //            other.transform.position).normalized;
-        //            //get direction vector from other to current
-
-        //            separationDir += targetDirection;
-        //            separationSpeed += dist * flock.WEIGHT_SEPERATION;
-        //            //how much needs to be seperated base on the distance
-        //            //this formula can be tweak where the shorter the distance
-        //            //the more speed required to seperate the boids
-        //        }
-        //    }
-
-        //    if (count > 0)
-        //    {
-        //        speed = speed / count;
-        //        flockDir = flockDir / count;
-        //        //getting the average speed and direction the flock needs to go
-
-        //        flockDir.Normalize();
-
-        //        steerPos = steerPos / count;
-        //        //finding the average position that the flock is going
-        //    }
-
-        //    //code below is redundant as separation count is always 0
-        //    //could open it again if u want to add separation count to the game
-        //    //if (separationCount > 0)
-        //    //    print("hello");
-        //    //    separationSpeed = separationSpeed / count;
-        //    //    separationDir = separationDir / separationSpeed;
-        //    //    separationDir.Normalize();
-        //    //}
-
-        //    Vector3 flockDirection = (steerPos - curr.transform.position) *
-        //        (flock.useCohesionRule ? flock.WEIGHT_COHESION : 0.0f);
-
-        //    /*
-        //    get the direction of the flock intended outcome
-        //    if the cohesion is needed, then multiply it with
-        //    the weight, else just ignore it
-        //    */
-
-        //    Vector3 separationDirection = separationDir * separationSpeed *
-        //        (flock.useSeparationRule ? flock.WEIGHT_SEPERATION : 0.0f);
-        //    /*
-        //     Get the seperation direction need to seperate from the boid nearby
-        //     This direction would be ignored if there is no seperation rule is not stated
-        //     */
-
-        //    Vector3 alignmentDirection = flockDir * speed *
-        //        (flock.useAlignmentRule ? flock.WEIGHT_ALIGNMENT : 0.0f);
-        //    /*
-        //     Where the boid intended wants to go. 
-        //     */
-
-        //    curr.TargetDirection = alignmentDirection +
-        //        separationDirection +
-        //        flockDirection;
-        //    //add this together to form the final direction needed for the flock.
-
-        //}
         IEnumerator Coroutine_Random()
         {
             while (true)
@@ -436,7 +329,7 @@ namespace experimenting
                     {
                         DoRandomFlockBehaviour(flock);
                     }
-                    //yield return null;
+                    yield return null;
                 }
                 yield return new WaitForSeconds(TickDurationRandom);
             }
@@ -476,46 +369,46 @@ namespace experimenting
             }
         }
 
-        IEnumerator Coroutine_AvoidObstacles()
-        {
-            while (true)
-            {
-                foreach (Flock flock in flocks)
-                {
-                    if (flock.useAvoidObstaclesRule)
-                    {
-                        DoAvoidObstacleBehaviour(flock);
-                    }
-                    //yield return null;
-                }
-                yield return null;
-            }
+        //IEnumerator Coroutine_AvoidObstacles()
+        //{
+        //    while (true)
+        //    {
+        //        foreach (Flock flock in flocks)
+        //        {
+        //            if (flock.useAvoidObstaclesRule)
+        //            {
+        //                DoAvoidObstacleBehaviour(flock);
+        //            }
+        //            yield return null;
+        //        }
+        //        yield return null;
+        //    }
 
-        }
-        void DoAvoidObstacleBehaviour(Flock flock)
-        {
-            Boid[] boids = flock.boidsInformation.ToArray();
-            for (int i = 0; i < boids.Length; ++i)
-            {
-                for (int j = 0; j < mObstacles.Count; ++j)
-                {
-                    float dist = (
-                    mObstacles[j].transform.position -
-                    (Vector3)boids[i].position).magnitude;
+        //}
+        //void DoAvoidObstacleBehaviour(Flock flock)
+        //{
+        //    Boid[] boids = flock.boidsInformation.ToArray();
+        //    for (int i = 0; i < boids.Length; ++i)
+        //    {
+        //        for (int j = 0; j < mObstacles.Count; ++j)
+        //        {
+        //            float dist = (
+        //            mObstacles[j].transform.position -
+        //            (Vector3)boids[i].position).magnitude;
 
-                    if (dist < mObstacles[j].AvoidanceRadius)
-                    {
-                        Vector3 targetDirection = (
-                            (Vector3)boids[i].position -
-                            mObstacles[j].transform.position).normalized;
+        //            if (dist < mObstacles[j].AvoidanceRadius)
+        //            {
+        //                Vector3 targetDirection = (
+        //                    (Vector3)boids[i].position -
+        //                    mObstacles[j].transform.position).normalized;
 
-                        boids[i].targetDirection += (float3) targetDirection * flock.WEIGHT_AVOID_OBSTICLES;
-                        boids[i].targetDirection = NormalizeFloat3(boids[i].targetDirection);
-                    }
-                }
-            }
-            flock.boidsInformation = boids.ToList(); //update the list
-        }
+        //                boids[i].targetDirection += (float3) targetDirection * flock.WEIGHT_AVOID_OBSTICLES;
+        //                boids[i].targetDirection = NormalizeFloat3(boids[i].targetDirection);
+        //            }
+        //        }
+        //    }
+        //    flock.boidsInformation = boids.ToList(); //update the list
+        //}
 
         //IEnumerator Coroutine_SeparationWithEnemies()
         //{

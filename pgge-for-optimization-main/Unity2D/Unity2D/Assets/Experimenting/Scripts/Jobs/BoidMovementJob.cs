@@ -23,7 +23,7 @@ namespace experimenting
 
         public void Execute(int index, TransformAccess transform)
         {//the index are the same after all...
-            Debug.Log($"job system index{index} position {transform.position}");
+
             Boid currentBoid = boidsData[index];
             //check if on the edge
             if(canBounce )

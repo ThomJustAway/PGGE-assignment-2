@@ -31,7 +31,6 @@ public class Player : MonoBehaviour
     public Canvas mCanvas;
     public RectTransform mCrossHair;
 
-
     public GameObject mBulletPrefab;
     public float mBulletSpeed = 10.0f;
 
