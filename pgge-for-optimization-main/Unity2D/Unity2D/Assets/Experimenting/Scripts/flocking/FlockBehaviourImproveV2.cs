@@ -231,9 +231,7 @@ namespace experimenting
 
                                 foreach (var outputContainerItem in outputContainer)
                                 {
-                                    autonomousList[(int)outputContainerItem.id].TargetDirection = 
-                                        outputContainerItem.targetDirection;
-
+                                    autonomousList[(int)outputContainerItem.id].TargetDirection = outputContainerItem.targetDirection;
                                 }
                                 //release the data
                                 otherBoids.Release();
@@ -249,6 +247,19 @@ namespace experimenting
                 yield return new WaitForSeconds(TickDuration);
             }
         }
+
+        //IEnumerator Coroutine_Flocking2()
+        //{
+        //    while (true)
+        //    {
+        //        if (useFlocking)
+        //        {
+        //            foreach (var flock in flocks) {
+        //                Execute();
+        //            }
+        //        }
+        //    }
+        //}
         //void Execute(Flock flock, int i)
         //{
         //    Vector3 flockDir = Vector3.zero;

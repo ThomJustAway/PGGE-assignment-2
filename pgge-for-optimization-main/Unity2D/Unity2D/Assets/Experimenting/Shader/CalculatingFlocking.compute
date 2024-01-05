@@ -13,15 +13,19 @@ struct Boid
 bool useCohesionRule;
 bool useAlignmentRule;
 bool useSeparationRule;
+
 float WEIGHT_COHESION;
 float WEIGHT_SEPERATION;
 float WEIGHT_ALIGNMENT;
+
 float visibility;
 float separationDistance;
 uint sizeOfFlock;
 
 RWStructuredBuffer<Boid> otherBoids;
 RWStructuredBuffer<Boid> currentBatch;
+
+
 
 [numthreads(1000, 1, 1)]
 void CalculatingFlocking(uint3 id : SV_DispatchThreadID)
@@ -44,7 +48,7 @@ void CalculatingFlocking(uint3 id : SV_DispatchThreadID)
         float3 directionFromCurrToOther = curr.position - other.position;
         float dist = length(directionFromCurrToOther);
 
-        if (dist < visibility)
+        if (dist <= visibility)
         {
             speed += other.speed;
             flockDir += other.targetDirection;
@@ -52,7 +56,7 @@ void CalculatingFlocking(uint3 id : SV_DispatchThreadID)
             count++;
         }
 
-        if (dist < separationDistance)
+        if (dist <= separationDistance)
         {
             float3 targetDirection = normalize(directionFromCurrToOther);
 
@@ -80,4 +84,3 @@ void CalculatingFlocking(uint3 id : SV_DispatchThreadID)
     curr.targetDirection = alignmentDirection + separationDirection + flockDirection;
     currentBatch[id.x] = curr;
 }
-
