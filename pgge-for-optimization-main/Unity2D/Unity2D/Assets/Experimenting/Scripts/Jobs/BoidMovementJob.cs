@@ -59,24 +59,6 @@ namespace experimenting
 
         private void RotateGameObjectBasedOnTargetDirection(Boid curBoid, TransformAccess transform)
         {
-            //Vector3 targetDirection = TargetDirection.normalized;
-            ////get the normalize value of the target direction
-            //Vector3 rotatedVectorToTarget =
-            //    Quaternion.Euler(0, 0, 90) *
-            //    targetDirection;
-            ////Rotate around target direction + 90 degree because that is the boids starting position
-
-            //Quaternion targetRotation = Quaternion.LookRotation(
-            //    forward: Vector3.forward, //want to rotate the object through the z axis
-            //    upwards: rotatedVectorToTarget);
-            ////then create a rotation based of the vector. 
-            ////from: vector3.up to: rotatedVectorToTarget
-
-            //transform.rotation = Quaternion.RotateTowards(
-            //    transform.rotation,
-            //    targetRotation,
-            //    RotationSpeed * Time.deltaTime); //give out the next rotation
-
             float3 targetDirection = NormalizeFloat3(curBoid.targetDirection);
             //get the normalize value of the target direction
             float3 rotatedVectorToTarget =

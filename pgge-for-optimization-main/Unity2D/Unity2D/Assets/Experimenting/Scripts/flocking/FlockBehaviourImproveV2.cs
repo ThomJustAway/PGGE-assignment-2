@@ -75,11 +75,11 @@ namespace experimenting
 
             StartCoroutine(Coroutine_Random_Motion_Obstacles());
 
-            //StartCoroutine(Coroutine_Flocking());
-            StartCoroutine(Coroutine_FlockingVersion2());
+            StartCoroutine(Coroutine_Flocking());
+            //StartCoroutine(Coroutine_FlockingVersion2());
             //StartCoroutine(Coroutine_AvoidObstacles());
             //StartCoroutine(Coroutine_Random());
-            //StartCoroutine(MoveBoids());
+            StartCoroutine(MoveBoids());
 
             //StartCoroutine(Coroutine_SeparationWithEnemies()); // change this later
         }
@@ -232,8 +232,9 @@ namespace experimenting
                     //flock.boidsInformation = boidsNativeArray.ToList();
                     for(int i = 0; i < boidsNativeArray.Length; i++)
                     {
-                        Boid copyBoid = flock.boidsInformation[i];
-                        copyBoid.position = boidsNativeArray[i].position;//get the updated position
+                        //replacing new position for the boids
+                        var copyBoid = flock.boidsInformation[i];
+                        copyBoid.position = boidsNativeArray[i].position;
                         flock.boidsInformation[i] = copyBoid;
                     }
                     boidsNativeArray.Dispose();
@@ -243,6 +244,89 @@ namespace experimenting
             }
         }
 
+
+        //this function is big o of n^2 , n^3 if u consider the excute function
+        IEnumerator Coroutine_Flocking()
+        {
+            while (true)
+            {
+                if (useFlocking)
+                {
+                    foreach (Flock flock in flocks)
+                    {
+                        //store the rules into data for compute shader
+                        Boid[] allTheBoids = flock.boidsInformation.ToArray();
+                        List<Boid> partitionBoidsList = new List<Boid>();
+
+                        ComputeBuffer otherBoids = new ComputeBuffer(allTheBoids.Length, Boid.sizeOfData());
+                        otherBoids.SetData(allTheBoids);
+
+                        for (uint i = 0; i < allTheBoids.Length; ++i)
+                        {
+                            var currentBoid = allTheBoids[(int)i];
+                            partitionBoidsList.Add(new Boid(
+                                i,
+                                currentBoid.position,
+                                currentBoid.targetDirection,
+                                currentBoid.speed
+                                ));
+
+                            //partition to boids by 100s
+                            if (i % BatchSize == BatchSize - 1 || 
+                                i == allTheBoids.Length - 1) //partition to 100;
+                            {
+                                //ComputeBuffer otherBoids = new ComputeBuffer(allTheBoids.Length , Boid.sizeOfData());
+                                //otherBoids.SetData(allTheBoids);
+
+                                ComputeBuffer currentBathBoids = new ComputeBuffer(partitionBoidsList.Count, Boid.sizeOfData());
+                                currentBathBoids.SetData(partitionBoidsList);
+
+                                int kernelIndex = SettingUpComputeShader(flock, allTheBoids.Length, otherBoids, currentBathBoids);
+
+                                //calculate the number of threads required
+                                int numberOfThreads = partitionBoidsList.Count % 1000;
+                                if (numberOfThreads == 0) numberOfThreads = 1000;
+
+                                flockingCalculation.Dispatch(kernelIndex, numberOfThreads, 1, 1);
+
+                                Boid[] outputContainer = new Boid[partitionBoidsList.Count];
+                                currentBathBoids.GetData(outputContainer);
+
+                                foreach (var outputContainerItem in outputContainer)
+                                {
+                                    var copyBoid = flock.boidsInformation[(int)outputContainerItem.id];
+                                    copyBoid.targetDirection = outputContainerItem.targetDirection;
+                                    copyBoid.targetSpeed = outputContainerItem.targetSpeed;
+                                    flock.boidsInformation[(int)outputContainerItem.id] = copyBoid;
+
+                                    print($" old boid id: {outputContainerItem.id} , " +
+                                    $"boid speed {outputContainerItem.targetSpeed}, " +
+                                    $"boid target direction {outputContainerItem.targetDirection}" +
+                                    $"Boid position {outputContainerItem.position}");
+
+                                    //the old new data is overwritten by the old data
+                                }
+                                //release the data
+                                currentBathBoids.Release();
+
+                                yield return null;
+                            }
+                        }
+                        foreach (var info in flock.boidsInformation)
+                        {
+                            print($" current boid id: {info.id} , " +
+                                $"boid speed {info.targetSpeed}, " +
+                                $"boid target direction {info.targetDirection}" +
+                                $"Boid position {info.position}");
+                        }
+                        otherBoids.Release();
+                    }
+                }
+                yield return new WaitForSeconds(TickDuration);
+            }
+        }
+
+        #region version 2
         IEnumerator MoveBoidsVersion2()
         {
             //use unity job system here!.
@@ -283,84 +367,6 @@ namespace experimenting
             //yield return new WaitForSeconds(TickDuration);
 
         }
-
-        //this function is big o of n^2 , n^3 if u consider the excute function
-        IEnumerator Coroutine_Flocking()
-        {
-            while (true)
-            {
-                if (useFlocking)
-                {
-                    foreach (Flock flock in flocks)
-                    {
-                        //store the rules into data for compute shader
-                        Boid[] allTheBoids = flock.boidsInformation.ToArray();
-                        List<Boid> partitionBoidsList = new List<Boid>();
-
-                        ComputeBuffer otherBoids = new ComputeBuffer(allTheBoids.Length, Boid.sizeOfData());
-                        otherBoids.SetData(allTheBoids);
-
-                        for (uint i = 0; i < allTheBoids.Length; ++i)
-                        {
-                            var currentBoid = allTheBoids[(int)i];
-                            partitionBoidsList.Add(new Boid(
-                                i,
-                                currentBoid.position,
-                                currentBoid.targetDirection,
-                                currentBoid.speed
-                                ));
-
-                            //partition to boids by 100s
-                            if (i % BatchSize == BatchSize - 1 || 
-                                i == allTheBoids.Length - 1) //partition to 100;
-                            {
-
-                                //ComputeBuffer otherBoids = new ComputeBuffer(allTheBoids.Length , Boid.sizeOfData());
-                                //otherBoids.SetData(allTheBoids);
-
-                                ComputeBuffer currentBathBoids = new ComputeBuffer(partitionBoidsList.Count, Boid.sizeOfData());
-                                currentBathBoids.SetData(partitionBoidsList);
-
-                                int kernelIndex = SettingUpComputeShader(flock, allTheBoids, otherBoids, currentBathBoids);
-
-                                //calculate the number of threads required
-                                int numberOfThreads = partitionBoidsList.Count % 1000;
-                                if (numberOfThreads == 0) numberOfThreads = 1000;
-
-                                flockingCalculation.Dispatch(kernelIndex, numberOfThreads, 1, 1);
-
-                                Boid[] outputContainer = new Boid[partitionBoidsList.Count];
-                                currentBathBoids.GetData(outputContainer);
-
-                                foreach (var outputContainerItem in outputContainer)
-                                {
-                                    flock.boidsInformation[(int)outputContainerItem.id] = outputContainerItem;
-                                    //print($" old boid id: {outputContainerItem.id} , " +
-                                    //$"boid speed {outputContainerItem.targetSpeed}, " +
-                                    //$"boid target direction {outputContainerItem.targetDirection}" +
-                                    //$"Boid position {outputContainerItem.position}");
-
-                                    //the old new data is overwritten by the old data
-                                }
-                                //release the data
-                                currentBathBoids.Release();
-
-                                yield return null;
-                            }
-                        }
-                        //foreach(var info in flock.boidsInformation) {
-                        //    print($" current boid id: {info.id} , " +
-                        //        $"boid speed {info.targetSpeed}, " +
-                        //        $"boid target direction {info.targetDirection}" +
-                        //        $"Boid position {info.position}" );
-                        //}
-                        otherBoids.Release();
-                    }
-                }
-                yield return new WaitForSeconds(TickDuration);
-            }
-        }
-
         IEnumerator Coroutine_FlockingVersion2()
         {
             while (true)
@@ -397,7 +403,7 @@ namespace experimenting
                                 ComputeBuffer currentBathBoids = new ComputeBuffer(partitionBoidsList.Count, Boid.sizeOfData());
                                 currentBathBoids.SetData(partitionBoidsList);
 
-                                int kernelIndex = SettingUpComputeShader(flock, allTheBoids, otherBoids, currentBathBoids);
+                                int kernelIndex = SettingUpComputeShader(flock, allTheBoids.Length, otherBoids, currentBathBoids);
 
                                 //calculate the number of threads required
                                 int numberOfThreads = partitionBoidsList.Count % 1000;
@@ -411,9 +417,7 @@ namespace experimenting
                                 foreach (var outputContainerItem in outputContainer)
                                 {
                                     flock.boidsInformation[(int)outputContainerItem.id] = outputContainerItem;
-                                    //the old new data is overwritten by the old data
                                 }
-                                //release the data
                                 currentBathBoids.Release();
 
                                 yield return MoveBoidsVersion2();
@@ -426,9 +430,9 @@ namespace experimenting
                 yield return new WaitForSeconds(TickDuration);
             }
         }
+        #endregion
 
-
-        private int SettingUpComputeShader(Flock flock, Boid[] allTheBoids, ComputeBuffer otherBoids, ComputeBuffer currentBathBoids)
+        private int SettingUpComputeShader(Flock flock, int length, ComputeBuffer otherBoids, ComputeBuffer currentBathBoids)
         {
             int kernelIndex = flockingCalculation.FindKernel("CalculatingFlocking");
 
@@ -447,61 +451,11 @@ namespace experimenting
             flockingCalculation.SetFloat("visibility", flock.visibility);
             flockingCalculation.SetFloat("separationDistance", flock.separationDistance);
 
-            flockingCalculation.SetFloat("sizeOfFlock", allTheBoids.Length);
+            flockingCalculation.SetInt("sizeOfFlock", length);
 
             flockingCalculation.SetBuffer(kernelIndex, "otherBoids", otherBoids);
             flockingCalculation.SetBuffer(kernelIndex, "currentBatch", currentBathBoids);
             return kernelIndex;
-        }
-
-        //IEnumerator Coroutine_Random()
-        //{
-        //    while (true)
-        //    {
-        //        foreach (Flock flock in flocks)
-        //        {
-        //            if (flock.useRandomRule)
-        //            {
-        //                DoRandomFlockBehaviour(flock);
-        //            }
-        //            yield return null;
-        //        }
-        //        yield return new WaitForSeconds(TickDurationRandom);
-        //    }
-        //}
-        void DoRandomFlockBehaviour(Flock flock)
-        {
-            for (int i = 0; i < flock.boidsInformation.Count; ++i)
-            {
-                Boid currentBoid = flock.boidsInformation[i]; //make a copy
-                float rand = UnityEngine.Random.Range(0.0f, 1.0f);
-                currentBoid.targetDirection = NormalizeFloat3(currentBoid.targetDirection);
-                float angle = Mathf.Atan2(currentBoid.targetDirection.y, currentBoid.targetDirection.x);
-
-                if (rand > 0.5f)
-                {
-                    angle += Mathf.Deg2Rad * 45.0f;
-                }
-                else
-                {
-                    angle -= Mathf.Deg2Rad * 45.0f;
-                }
-
-                Vector3 dir = Vector3.zero;
-                dir.x = Mathf.Cos(angle);
-                dir.y = Mathf.Sin(angle);
-
-                currentBoid.targetDirection += (float3)dir * flock.WEIGHT_RANDOM;
-                currentBoid.targetDirection = NormalizeFloat3(currentBoid.targetDirection);
-                //Debug.Log(autonomousList[i].TargetDirection);
-
-                float speed = UnityEngine.Random.Range(1.0f, flock.maxSpeed);
-                currentBoid.targetSpeed += speed * flock.WEIGHT_SEPERATION;
-                currentBoid.targetSpeed /= 2.0f;
-
-                //average the speed for the boid
-                flock.boidsInformation[i] = currentBoid;
-            }
         }
 
         //IEnumerator Coroutine_AvoidObstacles()
@@ -639,6 +593,7 @@ namespace experimenting
             }
         }
 
+        #region obstacles
         private void Rule_CrossBorder_Obstacles()
         {
             List<Autonomous> listOfObstacle = Obstacles
@@ -733,6 +688,7 @@ namespace experimenting
                 autonomousList[i].TargetDirection.Normalize();
             }
         }
+        #endregion
 
         private float3 NormalizeFloat3(float3 vector)
         {

@@ -14,6 +14,7 @@ bool useCohesionRule;
 bool useAlignmentRule;
 bool useSeparationRule;
 bool useRandomRule;
+bool canBounce;
 
 float WEIGHT_COHESION;
 float WEIGHT_SEPERATION;
@@ -23,6 +24,12 @@ float WEIGHT_RANDOM;
 float maxSpeed;
 float visibility;
 float separationDistance;
+
+float maxBoundX;
+float maxBoundY;
+float minBoundX;
+float minBoundY;
+float padding;
 
 uint sizeOfFlock;
 
@@ -67,11 +74,73 @@ Boid DoRandomFlockBehaviour(Boid currentBoid)
     return currentBoid;
 }
 
-
-[numthreads(1000, 1, 1)]
-void CalculatingFlocking(uint3 id : SV_DispatchThreadID)
+Boid BounceBoid(Boid currentBoid)
 {
-    Boid curr = currentBatch[id.x];
+    float3 boidPosition = currentBoid.position;
+    float3 targetDirection = currentBoid.targetDirection;
+    if(boidPosition.x > maxBoundX - padding)
+    {
+        targetDirection.x = -1.0f;
+    }
+    else if(boidPosition.x < minBoundX + padding)
+    {
+        targetDirection.x = 1.0f;
+    }
+
+    if(boidPosition.y > maxBoundY - padding)
+    {
+        targetDirection.y = -1.0f;
+    }
+    else if(boidPosition.x < minBoundY + padding)
+    {
+        targetDirection.y = 1.0f;
+    }
+
+    currentBoid.targetDirection = targetDirection;
+
+    return currentBoid;
+}
+
+Boid TeleportBoid(Boid currentBoid)
+{
+    float3 boidPosition = currentBoid.position;
+    float offset = 1.0f;
+    if(boidPosition.x > maxBoundX)
+    {
+        boidPosition.x = minBoundY + offset;
+    }
+    else if(boidPosition.x < minBoundX)
+    {
+        boidPosition.x = maxBoundY - offset;
+    }
+
+    if(boidPosition.y > maxBoundY)
+    {
+        boidPosition.y = minBoundY + offset;
+    }
+    else if(boidPosition.x < minBoundY)
+    {
+        boidPosition.y = maxBoundX - offset;
+    }
+    currentBoid.position = boidPosition;
+    return currentBoid;
+}
+
+Boid DoBounding(Boid currentBoid)
+{
+    if(canBounce)
+    { //then make the boids bounce
+        return BounceBoid(currentBoid);
+    }
+    else
+    {
+        return TeleportBoid(currentBoid);
+    }
+}
+
+void DoFlockingCalculation(uint id){
+
+    Boid curr = currentBatch[id];
     float3 flockDir = float3(0, 0, 0);
     float3 separationDir = float3(0, 0, 0);
 
@@ -80,9 +149,11 @@ void CalculatingFlocking(uint3 id : SV_DispatchThreadID)
 
     uint count = 0;
     float3 steerPos = float3(0, 0, 0);
+
+    //over here, it will calculate the flocking behaviour of the boids
     for (uint j = 0; j < sizeOfFlock; ++j)
     {
-        if (curr.id == j) continue;
+        if (curr.id == j) continue; //if same index then just move on
 
         Boid other = otherBoids[j];
         float3 directionFromCurrToOther = curr.position - other.position;
@@ -99,7 +170,6 @@ void CalculatingFlocking(uint3 id : SV_DispatchThreadID)
         if (dist < separationDistance)
         {
             float3 targetDirection = normalize(directionFromCurrToOther);
-
             separationDir += targetDirection;
             separationSpeed += dist * WEIGHT_SEPERATION;
         }
@@ -114,12 +184,36 @@ void CalculatingFlocking(uint3 id : SV_DispatchThreadID)
 
         steerPos = steerPos / count;
     }
+    else
+    {
+        //if none set this values so that it become more unpredictable
+        //generate two random numbers
 
-    float3 flockDirection = (steerPos - curr.position) * (useCohesionRule ? WEIGHT_COHESION : 0.0f);
+        //Calculate random seed for the boids so that it wont move around
+        float3 randomSeed = float3(random(curr.position.x , minBoundX , maxBoundX),
+            random(curr.position.y, minBoundY , maxBoundY) , 0);
 
-    float3 separationDirection = separationDir * separationSpeed * (useSeparationRule ? WEIGHT_SEPERATION : 0.0f);
+        steerPos = randomSeed;
+    }
 
-    float3 alignmentDirection = flockDir * speed * (useAlignmentRule ? WEIGHT_ALIGNMENT : 0.0f);
+    float3 flockDirection = float3(0,0,0);
+    float3 separationDirection = float3(0,0,0);
+    float3 alignmentDirection = float3(0,0,0);
+
+    if(useCohesionRule)
+    {
+        //The reason why it is rotating around the center is because it 
+        //steerPos is 0, So it will always try to center itself to the middle;
+        flockDirection = (steerPos - curr.position) * WEIGHT_COHESION;
+    }
+    if(useAlignmentRule)
+    {
+        alignmentDirection = flockDir * speed * WEIGHT_ALIGNMENT;
+    }
+    if(useSeparationRule)
+    {
+        separationDirection = separationDir * separationSpeed * WEIGHT_SEPERATION;
+    }
 
     curr.targetDirection = alignmentDirection + separationDirection + flockDirection;
 
@@ -127,6 +221,15 @@ void CalculatingFlocking(uint3 id : SV_DispatchThreadID)
     {
         curr = DoRandomFlockBehaviour(curr);
     }
-    currentBatch[id.x] = curr;
+    
+    curr = DoBounding(curr);
+
+    currentBatch[id] = curr;
 }
 
+
+[numthreads(1000, 1, 1)]
+void CalculatingFlocking(uint3 id : SV_DispatchThreadID)
+{
+    DoFlockingCalculation(id.x);
+}
