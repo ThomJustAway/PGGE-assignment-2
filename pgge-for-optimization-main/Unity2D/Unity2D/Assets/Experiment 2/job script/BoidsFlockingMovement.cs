@@ -15,27 +15,35 @@ using static Unity.Collections.AllocatorManager;
 namespace experimenting2
 {
     [BurstCompile]
+    ///<summary>
+    ///This is the job that does all the calculation for the boids
+    ///in terms of target direction and placement of the boids.
+    ///Runs IJobParallelFor since we want to do the same operation
+    ///on multiple boids.
+    ///</summary>
     public struct BoidsFlockingMovement : IJobParallelFor
     {
+        //will require all the boids so that the boid can know where the boids are nearby and do calculation based on that.
         [ReadOnly] public NativeList<MovementObject> AllTheBoids;
+        // this are all the predator boids so that the boids can avoid them
         [ReadOnly] public NativeList<MovementObject> predatorBoids;
-
+        //this is obstacles so that the boids can avoid them
         [ReadOnly] public NativeArray<BoidsObstacle> obstacles;
         public NativeArray<MovementObject> output;
         public DataRule rules;
         public Bounds boxBound;
 
-        public void Execute(int index) //will look index
+        public void Execute(int index) 
         {
             MovementObject curr = StartCalculatingFlockingRules(index);
-            curr = DoRandomMovement(curr);
-            curr = DoAvoidObstacleBehaviour(curr);
-            curr = HandleBoundries(curr);
-            curr = DoAvoidPredatorBoidsBehaviour(curr);
-            //add this together to form the final direction needed for the flock.
+            curr = DoRandomMovement(curr); //apply random movement to the boid
+            curr = DoAvoidObstacleBehaviour(curr); //apply avoid obstalce Behaviour to the boid
+            curr = DoAvoidPredatorBoidsBehaviour(curr); //apply the predator for the boids
+            curr = HandleBoundries(curr);//apply boundries to the boids
+            //add this together to form the final direction needed for the boid.
+            //place it into the output index so that it can be sed for the moving movementObject.
             output[index] = curr;
         }
-
 
         //handle the main flocking behaviour
         private MovementObject StartCalculatingFlockingRules(int i)
@@ -101,23 +109,23 @@ namespace experimenting2
                 steerPos = steerPos / count;
                 //finding the average position that the flock is going
             }
-            //else
-            //{ //if it is equal to 0 then have some changes to the values because
-            //  //the boids can act abit weird
-            //    float randx = Mathf.Cos(curr.position.x);
-            //    float randy = Mathf.Sin(curr.position.y);
+            else
+            { //if it is equal to 0 then have some changes to the values because
+              //the boids can act abit weird
+                float randx = Mathf.Cos(curr.position.x);
+                float randy = Mathf.Sin(curr.position.y);
 
-            //    separationDir = new float3(randx, randy, 0);
+                separationDir = new float3(randx, randy, 0);
 
-            //    float randomLerpValue = separationDir.x;
-            //    if (randomLerpValue < 0)
-            //    {
-            //        randomLerpValue = -randomLerpValue; //make it positive
-            //    }
-            //    randx = Mathf.Lerp(boxBound.min.x, boxBound.max.x, randomLerpValue);
-            //    randy = Mathf.Lerp(boxBound.min.y, boxBound.max.y, randomLerpValue);
-            //    steerPos = new float3(randx, randy, 0);
-            //}
+                float randomLerpValue = separationDir.x;
+                if (randomLerpValue < 0)
+                {
+                    randomLerpValue = -randomLerpValue; //make it positive
+                }
+                randx = Mathf.Lerp(boxBound.min.x, boxBound.max.x, randomLerpValue);
+                randy = Mathf.Lerp(boxBound.min.y, boxBound.max.y, randomLerpValue);
+                steerPos = new float3(randx, randy, 0);
+            }
 
             float3 flockDirection = (steerPos - curr.position) *
                 (rules.useCohesionRule ? rules.WEIGHT_COHESION : 0.0f);
@@ -140,7 +148,6 @@ namespace experimenting2
             /*
              Where the boid intended wants to go. 
              */
-
 
             curr.targetDirection = alignmentDirection +
                 separationDirection +

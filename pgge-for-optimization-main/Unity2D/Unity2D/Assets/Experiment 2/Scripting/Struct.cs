@@ -7,17 +7,17 @@ namespace experimenting2
 {
     public struct MovementObject
     {
-        public uint id;
-        public float3 targetDirection;
-        public float speed;
-        public float targetSpeed;
-        public float3 position;
+        public uint id; //unique identifier for each boids
+        public float3 targetDirection; //target direction to know where the boids should look at next frame
+        public float speed; 
+        public float targetSpeed; //targe speed to know how much it needs to speed up or slow down
+        public float3 position; //position for the jobs to know every location of the boids
 
         public MovementObject(uint id,
             float3 targetDirection,
             float speed,
             float3 position
-            )
+            ) //initializer
         {
             this.id = id;
             this.targetDirection = targetDirection;
@@ -30,6 +30,7 @@ namespace experimenting2
     [Serializable]
     public struct DataRule
     {
+        //this is the struct to contain all the rules so that it can be pass to the job system.
         public float maxSpeed;
         public float maxRotationSpeed;
 
@@ -67,12 +68,12 @@ namespace experimenting2
 
     }
 
-    public struct BoidsObstacle
+    public struct BoidsObstacle //special struct for the obstacles so that the boids know where to avoid them
     {
-        public float3 position;
+        public float3 position; //the position of the obstacle 
         public float AvoidanceRadius;
         public float AvoidanceRadiusMultFactor;
-        public BoidsObstacle(float3 position, float radius)
+        public BoidsObstacle(float3 position, float radius) //initialize the struct
         {
             this.position = position;
             AvoidanceRadius = radius;
