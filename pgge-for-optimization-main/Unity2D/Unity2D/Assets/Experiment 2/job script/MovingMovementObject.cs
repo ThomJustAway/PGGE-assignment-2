@@ -1,52 +1,50 @@
 ﻿using experimenting;
 using System.Collections;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Jobs;
 
-namespace experimenting
+namespace experimenting2
 {
-    public struct BoidMovementJob : IJobParallelForTransform
+    public struct MovingMovementObject : IJobParallelForTransform
     {
-        public float MaxSpeed;
-        public NativeArray<Boid> boidsData;
+        [ReadOnly] public NativeArray<BoidsObstacle> obstacles;
+        [ReadOnly] public NativeArray<MovementObject> boidsData;
         public float deltaTime;
-        public float RotationSpeed;
-
+        public DataRule rulesData;
         public Bounds boxBound;
-        public bool canBounce;
 
         //problem: why does the boids disappear after a set frame?
 
         public void Execute(int index, TransformAccess transform)
         {//the index are the same after all...
-            Boid currentBoid = boidsData[index];
+
+            MovementObject currentBoid = boidsData[index];
+
             //check if on the edge
-            if(canBounce )
+            if (rulesData.bounceWall)
             {
-               currentBoid = BounceBoid(currentBoid, transform); //update the boids with new target direction
+                currentBoid = BounceBoid(currentBoid, transform); //update the boids with new target direction
             }
             else
             {
                 TeleportBoid(transform);
             }
 
-            RotateGameObjectBasedOnTargetDirection(currentBoid , transform);
-            MoveAutonomous(currentBoid, transform);
-            currentBoid.position = transform.position;
-            boidsData[index] = currentBoid; //update the value
+            RotateGameObjectBasedOnTargetDirection(currentBoid, transform);
+            MoveObject(currentBoid, transform);
+            //currentBoid.position = transform.position;
+            //boidsData[index] = currentBoid; //update the value
         }
 
-        private void MoveAutonomous(Boid curBoid , TransformAccess transform)
+        private void MoveObject(MovementObject curBoid, TransformAccess transform)
         {
-            curBoid.speed = curBoid.speed + 
-                (( curBoid.targetSpeed - curBoid.speed) / 10.0f) * deltaTime;
+            curBoid.speed = curBoid.speed +
+                ((curBoid.targetSpeed - curBoid.speed) / 10.0f) * deltaTime;
 
-            if (curBoid.speed > MaxSpeed) //cap the next speed
-                curBoid.speed = MaxSpeed;
+            if (curBoid.speed > rulesData.maxSpeed) //cap the next speed
+                curBoid.speed = rulesData.maxSpeed;
 
             float3 vectorToMove = Quaternion.Euler(0, 0, transform.rotation.eulerAngles.z) * new float3(1, 0, 0);
 
@@ -56,7 +54,7 @@ namespace experimenting
             transform.position = currentPosition;
         }
 
-        private void RotateGameObjectBasedOnTargetDirection(Boid curBoid, TransformAccess transform)
+        private void RotateGameObjectBasedOnTargetDirection(MovementObject curBoid, TransformAccess transform)
         {
             float3 targetDirection = NormalizeFloat3(curBoid.targetDirection);
             //get the normalize value of the target direction
@@ -74,7 +72,7 @@ namespace experimenting
             transform.rotation = Quaternion.RotateTowards(
                 transform.rotation,
                 targetRotation,
-                RotationSpeed * deltaTime); //give out the next rotation
+                rulesData.maxRotationSpeed * deltaTime); //give out the next rotation
         }
 
         private float3 NormalizeFloat3(float3 vector)
@@ -108,12 +106,12 @@ namespace experimenting
             {
                 //teleport boid to the top of the map
                 pos.y = boxBound.max.y;
-            }            
+            }
 
             transform.position = pos;
         }
 
-        private Boid BounceBoid(Boid curBoid , TransformAccess transform)
+        private MovementObject BounceBoid(MovementObject curBoid, TransformAccess transform)
         {
 
             Vector3 pos = transform.position;

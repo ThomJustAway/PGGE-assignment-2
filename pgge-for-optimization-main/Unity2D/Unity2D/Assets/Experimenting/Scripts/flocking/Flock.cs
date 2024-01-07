@@ -59,6 +59,5 @@ namespace experimenting
 
         [HideInInspector] public List<Transform> boidsTransform;
         [HideInInspector] public List<Boid> boidsInformation;
-
     }
 }

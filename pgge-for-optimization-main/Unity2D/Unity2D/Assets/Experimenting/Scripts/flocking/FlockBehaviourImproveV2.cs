@@ -9,6 +9,7 @@ using Unity.Jobs;
 using Unity.Collections;
 using UnityEngine.Jobs;
 using System;
+using Patterns;
 //using Assets.Experimenting.Scripts.Jobs;
 //what does this script current contain
 
@@ -25,15 +26,16 @@ namespace experimenting
     //1000 boids: 89 - 90fps
     //3000 boids: 40 - 46FPS
     //6000 boids: 20 - 29FPS
-    public class FlockBehaviourImproveV2 : MonoBehaviour
+    public class FlockBehaviourImproveV2 : Singleton<FlockBehaviourImproveV2>
     {
+        
         List<Obstacle> mObstacles = new List<Obstacle>();
 
         [SerializeField]
         GameObject[] Obstacles;
 
         [SerializeField]
-        BoxCollider2D Bounds;
+        public BoxCollider2D Bounds;
 
         public float TickDuration = 1.0f;
         public float TickDurationSeparationEnemy = 0.1f;
@@ -128,10 +130,7 @@ namespace experimenting
             flock.boidsInformation = new List<Boid>();
             for (int i = 0; i < flock.numBoids; ++i)
             {
-                float x = UnityEngine.Random.Range(Bounds.bounds.min.x, Bounds.bounds.max.x);
-                float y = UnityEngine.Random.Range(Bounds.bounds.min.y, Bounds.bounds.max.y);
-
-                AddBoid(x, y, flock);
+                AddBoid(flock);
             }
         }//they are the groups of boid (flock)
 
@@ -154,31 +153,33 @@ namespace experimenting
         {
             for (int i = 0; i < BoidIncr; ++i) //increase the boids by some constant
             {
-                float x = UnityEngine.Random.Range(Bounds.bounds.min.x, Bounds.bounds.max.x);
-                float y = UnityEngine.Random.Range(Bounds.bounds.min.y, Bounds.bounds.max.y);
-
-                AddBoid(x, y, flocks[0]); //only select the first boid to increment
+                AddBoid(flocks[0]); //only select the first boid to increment
             }
             flocks[0].numBoids += BoidIncr;
         }
 
-        void AddBoid(float x, float y, Flock flock)
+        void AddBoid( Flock flock)
         {
+            float x = UnityEngine.Random.Range(Bounds.bounds.min.x, Bounds.bounds.max.x);
+            float y = UnityEngine.Random.Range(Bounds.bounds.min.y, Bounds.bounds.max.y);
+
+            Vector3 RandomPosition = new Vector3(x, y, 0.0f);
             GameObject obj = Instantiate(flock.PrefabBoid);
+            obj.transform.position = RandomPosition;
             obj.name = "Boid_" + flock.name + "_" + flock.boidsTransform.Count;
-            obj.transform.position = new Vector3(x, y, 0.0f);
+
+            var rotation = obj.transform.rotation;
+            float4 currentRotation = new float4(rotation.x, rotation.y , rotation.z, rotation.w);
+
             Boid boid = new Boid( (uint)flock.boidsTransform.Count
                 , obj.transform.position,
                 GetRandomDirection(),
-                GetRandomSpeed(flock.maxSpeed));
-
+                currentRotation,
+                GetRandomSpeed(flock.maxSpeed)
+                );
             //the index of the array is what makes the correlation between the two
             flock.boidsInformation.Add(boid);
             flock.boidsTransform.Add(obj.transform);
-            //Autonomous boid = obj.GetComponent<Autonomous>();
-
-
-            //boid.RotationSpeed = flock.rotationSpeed;
         }
 
         float GetRandomSpeed(float MaxSpeed)
@@ -195,7 +196,6 @@ namespace experimenting
 
             return new float3(dir.x,dir.y, 1);
         }
-
 
         #region coroutine
 
@@ -268,6 +268,7 @@ namespace experimenting
                                 i,
                                 currentBoid.position,
                                 currentBoid.targetDirection,
+                                currentBoid.rotation,
                                 currentBoid.speed
                                 ));
 
@@ -303,7 +304,6 @@ namespace experimenting
                                     $"boid speed {outputContainerItem.targetSpeed}, " +
                                     $"boid target direction {outputContainerItem.targetDirection}" +
                                     $"Boid position {outputContainerItem.position}");
-
                                     //the old new data is overwritten by the old data
                                 }
                                 //release the data
@@ -389,6 +389,7 @@ namespace experimenting
                                 i,
                                 currentBoid.position,
                                 currentBoid.targetDirection,
+                                currentBoid.rotation,
                                 currentBoid.speed
                                 ));
 

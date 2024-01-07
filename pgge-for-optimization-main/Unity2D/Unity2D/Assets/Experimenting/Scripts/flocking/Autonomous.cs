@@ -41,7 +41,6 @@ namespace experimenting
 
             if (Speed > MaxSpeed) //cap the next speed
                 Speed = MaxSpeed;
-
             transform.Translate(Vector3.right * Speed * Time.deltaTime, Space.Self);
         }
 
