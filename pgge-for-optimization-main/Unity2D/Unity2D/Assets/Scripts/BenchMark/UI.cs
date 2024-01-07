@@ -1,5 +1,6 @@
 using Assets.Improve_scripts.Scripts;
 using experimenting;
+using experimenting2;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -14,7 +15,7 @@ public class UI : MonoBehaviour
 
     public FlockBehaviour flockbehaviourOriginal;
     //public FlockBehaviourImprove improveflockbehaviour;
-    public FlockBehaviourImproveV2 flockBehaviour;
+    public FlockBehaviourV3A1 flockBehaviour;
     void Start()
     {
         StartCoroutine(coroutine_updatetext());

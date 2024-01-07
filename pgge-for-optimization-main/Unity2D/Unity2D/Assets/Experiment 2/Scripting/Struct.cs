@@ -63,6 +63,8 @@ namespace experimenting2
         public float enemySeparationDistance;
         public float visibility;
         public bool bounceWall;
+        public bool isPredator ;
+
     }
 
     public struct BoidsObstacle

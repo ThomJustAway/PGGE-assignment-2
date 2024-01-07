@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace experimenting2
 {
+    using System;
     using System.Collections;
     using System.Collections.Generic;
     using System.Linq;
@@ -33,23 +34,25 @@ namespace experimenting2
 
         public List<Flock> flocks = new List<Flock>();
         public NativeArray<BoidsObstacle> nativeContainerObstacles;
+        public NativeList<MovementObject> nativeContainerPredatorBoids;
+        private Queue<Action> addBoidsCallBack = new Queue<Action>();
 
         void Reset()
         {
-            DestroyAllNativeContainer();
+            ClearMemory();
             flocks = new List<Flock>() { new Flock() };
         }
 
         private void OnDestroy()
         {
-            DestroyAllNativeContainer();
+            ClearMemory();
             flocks = new List<Flock>() { new Flock() };
 
         }
 
         private void OnDisable()
         {
-            DestroyAllNativeContainer();
+            ClearMemory();
             flocks = new List<Flock>() { new Flock() };
         }
 
@@ -57,15 +60,19 @@ namespace experimenting2
         {
             SetObstacles();
             CreateFlock();
-            //probably have to change this to something that runs
-            //on the worker thread using burst compile plus job system
-
             StartCoroutine(CoroutineMovingBoids());
 
             //StartCoroutine(Coroutine_Random());
             //StartCoroutine(Coroutine_AvoidObstacles());
             //StartCoroutine(Coroutine_SeparationWithEnemies());
             //StartCoroutine(Coroutine_Random_Motion_Obstacles());
+        }
+
+        void Update()
+        {
+            HandleInputs();
+            //Rule_CrossBorder();
+            //Rule_CrossBorder_Obstacles();
         }
 
         #region starting functions
@@ -91,15 +98,7 @@ namespace experimenting2
             }
         }
 
-        void DestroyAllNativeContainer()
-        {
-            foreach(Flock flock in flocks)
-            {
-                flock.nativeMovementObjects.Dispose();
-                flock.nativeTransformAccessArray.Dispose(); 
-            }
-            nativeContainerObstacles.Dispose();
-        }
+
 
         void CreateFlock()
         {
@@ -113,23 +112,16 @@ namespace experimenting2
             }
 
         }//they are the groups of boid (flock)
+
         #endregion
-
-        void Update()
-        {
-            HandleInputs();
-            //Rule_CrossBorder();
-            //Rule_CrossBorder_Obstacles();
-        }
-
         #region boids related
-        void AddBoids(int count)
+        void AddBoids()
         {
-            for (int i = 0; i < count; ++i)
+            for (int i = 0; i < BoidIncr; ++i)
             {//ignore the predator boids and just add normal boids
                 AddBoid(flocks[0]);
             }
-            flocks[0].numBoids += count;
+            flocks[0].numBoids += BoidIncr;
         }
 
         void AddBoid(Flock flock)
@@ -160,7 +152,8 @@ namespace experimenting2
 
             if (Input.GetKeyDown(KeyCode.Space))
             {
-                AddBoids(BoidIncr);
+                //AddBoids();
+                addBoidsCallBack.Enqueue(AddBoids);
             }
         }
 
@@ -172,6 +165,10 @@ namespace experimenting2
             {
                 if (useFlocking)
                 {
+                    ClearMemory();
+                    AddBoidsFromCallback();
+                    SettingUpPredatorBoids();
+                    SettingUpObstacle();
                     foreach (Flock flock in flocks)
                     {
                         StartingJob(flock);
@@ -185,11 +182,31 @@ namespace experimenting2
                     flock.job.Complete();
                     UpdateBoidsData(flock);
                 }
-
             }
         }
+        private void ClearMemory()
+        {
+            //release memory so that it can be used for the next section
+            if (nativeContainerObstacles.IsCreated) nativeContainerObstacles.Dispose();
+            if(nativeContainerPredatorBoids.IsCreated) nativeContainerPredatorBoids.Dispose();
+            foreach(var flock in flocks)
+            {
+                if (flock.nativeTransformAccessArray.isCreated) flock.nativeTransformAccessArray.Dispose();
+                if (flock.NativeOutputMovementObjects.IsCreated) flock.NativeOutputMovementObjects.Dispose();
+            }
+        }
+        private void SettingUpObstacle()
+        {
+            nativeContainerObstacles = new NativeArray<BoidsObstacle>(Obstacles.Length, Allocator.TempJob);
 
-        private static void UpdateBoidsData(Flock flock)
+            for (int i = 0; i < mObstacles.Count; i++)
+            {
+                nativeContainerObstacles[i] = mObstacles[i].obstacle;
+
+                var currentObstacle = mObstacles[i].obstacle;
+            }
+        }
+        private void UpdateBoidsData(Flock flock)
         {
             for (int i = 0; i < flock.transforms.Count; i++)
             {
@@ -201,28 +218,20 @@ namespace experimenting2
                 //just update the position of the boid
             }
         }
-
         private void StartingJob(Flock flock)
         {
-            //release the memory for the next job
-            if (flock.nativeTransformAccessArray.isCreated) flock.nativeTransformAccessArray.Dispose();
-            if (flock.NativeOutputMovementObjects.IsCreated) flock.NativeOutputMovementObjects.Dispose();
-            if(nativeContainerObstacles.IsCreated) nativeContainerObstacles.Dispose();
+     
 
-            nativeContainerObstacles = new NativeArray<BoidsObstacle>(Obstacles.Length, Allocator.TempJob);
-
-            for(int i = 0; i < mObstacles.Count; i++)
-            {
-                nativeContainerObstacles[i] = mObstacles[i].obstacle;
-            } //fill up the native array with the obstacles for used
-
+            //fill up the native array with the obstacles for used
             flock.NativeOutputMovementObjects = new NativeArray<MovementObject>(flock.nativeMovementObjects.Capacity, Allocator.TempJob);
             BoidsFlockingMovement calculatingFlockingMovementJob = new BoidsFlockingMovement()
             {
                 AllTheBoids = flock.nativeMovementObjects,
                 rules = flock.rules,
                 output = flock.NativeOutputMovementObjects,
-                obstacles = nativeContainerObstacles
+                obstacles = nativeContainerObstacles,
+                boxBound = Bounds.bounds,
+                predatorBoids = nativeContainerPredatorBoids
             };
 
             MovingMovementObject movingBoidJob = new MovingMovementObject()
@@ -231,7 +240,6 @@ namespace experimenting2
                 boxBound = Bounds.bounds,
                 deltaTime = Time.deltaTime,
                 rulesData = flock.rules,
-                obstacles = nativeContainerObstacles
 
             };
 
@@ -243,6 +251,33 @@ namespace experimenting2
             flock.job = movingJob;
             //dont need it anymore now so just dispose it
         }
+
+        private void SettingUpPredatorBoids()
+        {
+            nativeContainerPredatorBoids = new NativeList<MovementObject>(Allocator.TempJob);
+            foreach(var flock in flocks)
+            {
+                if (flock.rules.isPredator)
+                {
+                    foreach(var boid in flock.nativeMovementObjects)
+                    {
+                        nativeContainerPredatorBoids.Add(boid);
+                    }
+                }
+            }
+        }
+
+        private void AddBoidsFromCallback()
+        {
+            if(addBoidsCallBack.Count > 0)
+            {
+                addBoidsCallBack.Dequeue().Invoke();
+            }
+        }
+
+
+
+
 
         #endregion
 
@@ -604,73 +639,7 @@ namespace experimenting2
 
             return new float3(dir.x, dir.y, 1);
         }
-        private void TeleportAutonomous(List<Autonomous> autonomousList)
-        {
-            for (int i = 0; i < autonomousList.Count; ++i)
-            {
-                //reduce extern calls
-                Vector3 pos = autonomousList[i].transform.position;
-                Bounds boxBound = Bounds.bounds;
-
-                if (pos.x > boxBound.max.x)
-                {
-                    //teleport boid to the left side of the map
-                    pos.x = Bounds.bounds.min.x;
-                }
-                else if (pos.x < boxBound.min.x)
-                {
-                    //teleport boid to the right side of the map
-                    pos.x = Bounds.bounds.max.x;
-                }
-
-                if (pos.y > boxBound.max.y)
-                {
-                    //teleport boid to the bottom of the map
-                    pos.y = Bounds.bounds.min.y;
-                }
-                else if (pos.y < boxBound.min.y)
-                {
-                    //teleport boid to the top of the map
-                    pos.y = Bounds.bounds.max.y;
-                }
-                autonomousList[i].transform.position = pos;
-            }
-        }
-
-        private void BounceAutonomous(List<Autonomous> autonomousList)
-        {
-            for (int i = 0; i < autonomousList.Count; ++i)
-            {
-                Vector3 pos = autonomousList[i].transform.position;
-                //reduce extern call
-                Transform currentTransform = autonomousList[i].transform;
-                Bounds boxBound = Bounds.bounds;
-
-                //for horizontal bounds
-                if (currentTransform.position.x + 5.0f > boxBound.max.x)
-                {
-                    //if near the right bound box, force it to go left
-                    autonomousList[i].TargetDirection.x = -1.0f;
-                }
-                else if (currentTransform.position.x - 5.0f < boxBound.min.x)
-                {
-                    //if near the left bound box, force it to go right
-                    autonomousList[i].TargetDirection.x = 1.0f;
-                }
-                //for vectical bounds
-                if (currentTransform.position.y + 5.0f > boxBound.max.y)
-                {
-                    //if near the top bound box, force it to go down
-                    autonomousList[i].TargetDirection.y = -1.0f;
-                }
-                else if (currentTransform.position.y - 5.0f < boxBound.min.y)
-                {
-                    //if near the bottom bound box, force it to go up
-                    autonomousList[i].TargetDirection.y = 1.0f;
-                }
-                autonomousList[i].TargetDirection.Normalize();
-            }
-        }
+ 
 
         #endregion
 

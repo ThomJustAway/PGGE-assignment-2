@@ -17,7 +17,6 @@ namespace experimenting2
         [Header("A flock is a group of Automous objects.")]
         public string name = "Default Name";
         public int numBoids = 10;
-        public bool isPredator = false;
         public Color colour = new Color(1.0f, 1.0f, 1.0f);
 
         public DataRule rules;

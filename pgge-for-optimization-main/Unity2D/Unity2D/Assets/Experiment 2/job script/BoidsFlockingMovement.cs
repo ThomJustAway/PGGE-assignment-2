@@ -3,42 +3,41 @@ using experimenting;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Security.Cryptography;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Jobs;
 using static Unity.Collections.AllocatorManager;
 
 namespace experimenting2
 {
+    [BurstCompile]
     public struct BoidsFlockingMovement : IJobParallelFor
     {
         [ReadOnly] public NativeList<MovementObject> AllTheBoids;
+        [ReadOnly] public NativeList<MovementObject> predatorBoids;
+
         [ReadOnly] public NativeArray<BoidsObstacle> obstacles;
-        public DataRule rules;
         public NativeArray<MovementObject> output;
+        public DataRule rules;
+        public Bounds boxBound;
+
         public void Execute(int index) //will look index
         {
-            CalculateFlocking(index);
-        }
-
-        private void CalculateFlocking(int i)
-        {
-            MovementObject curr = StartCalculatingFlockingRules(i);
-
-            if (rules.useRandomRule)
-            {
-                curr = DoRandomMovement(curr);
-            }
-            if (rules.useCohesionRule)
-            {
-                curr = DoAvoidObstacleBehaviour(curr);
-            }
-
+            MovementObject curr = StartCalculatingFlockingRules(index);
+            curr = DoRandomMovement(curr);
+            curr = DoAvoidObstacleBehaviour(curr);
+            curr = HandleBoundries(curr);
+            curr = DoAvoidPredatorBoidsBehaviour(curr);
             //add this together to form the final direction needed for the flock.
-            output[i] = curr;
+            output[index] = curr;
         }
 
+
+        //handle the main flocking behaviour
         private MovementObject StartCalculatingFlockingRules(int i)
         {
             float3 alignmentDir = Vector3.zero;
@@ -102,6 +101,23 @@ namespace experimenting2
                 steerPos = steerPos / count;
                 //finding the average position that the flock is going
             }
+            //else
+            //{ //if it is equal to 0 then have some changes to the values because
+            //  //the boids can act abit weird
+            //    float randx = Mathf.Cos(curr.position.x);
+            //    float randy = Mathf.Sin(curr.position.y);
+
+            //    separationDir = new float3(randx, randy, 0);
+
+            //    float randomLerpValue = separationDir.x;
+            //    if (randomLerpValue < 0)
+            //    {
+            //        randomLerpValue = -randomLerpValue; //make it positive
+            //    }
+            //    randx = Mathf.Lerp(boxBound.min.x, boxBound.max.x, randomLerpValue);
+            //    randy = Mathf.Lerp(boxBound.min.y, boxBound.max.y, randomLerpValue);
+            //    steerPos = new float3(randx, randy, 0);
+            //}
 
             float3 flockDirection = (steerPos - curr.position) *
                 (rules.useCohesionRule ? rules.WEIGHT_COHESION : 0.0f);
@@ -131,9 +147,11 @@ namespace experimenting2
                 flockDirection;
             return curr;
         }
-
-        MovementObject DoRandomMovement(MovementObject boid)
+        //for random movement
+        private MovementObject DoRandomMovement(MovementObject boid)
         {
+            if (!rules.useRandomRule) return boid;
+
             //autonomousList[i].TargetDirection.Normalize();
             boid.targetDirection = Normalise(boid.targetDirection);
             float rand = Mathf.Lerp(-1f, 1f, boid.targetDirection.x);
@@ -166,9 +184,11 @@ namespace experimenting2
 
             //average the speed for the boid
         }
-
-        MovementObject DoAvoidObstacleBehaviour(MovementObject boid)
+        //for avoiding obstacles
+        private MovementObject DoAvoidObstacleBehaviour(MovementObject boid)
         {
+            if (!rules.useAvoidObstaclesRule) return boid;
+
             for (int j = 0; j < obstacles.Length; ++j)
             {
                 var currentObstacle = obstacles[j];
@@ -185,30 +205,113 @@ namespace experimenting2
             }
             return boid;
         }
+        //for handling boundries
+
+        private MovementObject DoAvoidPredatorBoidsBehaviour(MovementObject boid)
+        {
+            //ignore this rules if the boid dont have to flee predator or if the boid is a predator
+            if(!rules.useFleeOnSightEnemyRule || rules.isPredator) return boid;
+            
+            //do the calculation
+            foreach(var predator in predatorBoids)
+            {
+                var targetDirection = predator.position - boid.position;
+                var distanceFromEnemy = Magnitude(targetDirection); 
+                if (distanceFromEnemy < rules.enemySeparationDistance)
+                { //within range of the visible enemy
+                    targetDirection = Normalise(targetDirection);
+                    //                boids[i].TargetDirection += targetDirection;
+                    //                boids[i].TargetDirection.Normalize();
+
+                    //                boids[i].TargetSpeed += dist * sepWeight;
+                    //                boids[i].TargetSpeed /= 2.0f;
+                    boid.targetDirection += targetDirection;
+                    boid.targetDirection = Normalise(boid.targetDirection);
+
+                    boid.targetSpeed += distanceFromEnemy * rules.WEIGHT_FLEE_ENEMY_ON_SIGHT;
+                    boid.targetSpeed /= 2.0f;
+                }
+            }
+            return boid;
+
+        }
+
+        #region handle Boundary
+        private MovementObject HandleBoundries(MovementObject boid)
+        {
+            if (rules.bounceWall)
+            {
+                return BounceBoid(boid);
+            }
+            else
+            {
+                return TeleportBoid(boid);
+            }
+        }
+        private MovementObject TeleportBoid(MovementObject boid)
+        {
+            //reduce extern calls
+            Vector3 pos = boid.position;
+
+            if (pos.x > boxBound.max.x)
+            {
+                //teleport boid to the left side of the map
+                pos.x = boxBound.min.x;
+            }
+            else if (pos.x < boxBound.min.x)
+            {
+                //teleport boid to the right side of the map
+                pos.x = boxBound.max.x;
+            }
+
+            if (pos.y > boxBound.max.y)
+            {
+                //teleport boid to the bottom of the map
+                pos.y = boxBound.min.y;
+            }
+            else if (pos.y < boxBound.min.y)
+            {
+                //teleport boid to the top of the map
+                pos.y = boxBound.max.y;
+            }
+
+            boid.position = pos;
+            return boid;
+        }
+
+        private MovementObject BounceBoid(MovementObject curBoid)
+        {
+            Vector3 pos = curBoid.position;
+
+            curBoid.targetDirection = Normalise(curBoid.targetDirection);
+
+            //for horizontal bounds
+            if (pos.x + 5.0f > boxBound.max.x)
+            {
+                //if near the right bound box, force it to go left
+                curBoid.targetDirection.x = -1.0f;
+            }
+            else if (pos.x - 5.0f < boxBound.min.x)
+            {
+                //if near the left bound box, force it to go right
+                curBoid.targetDirection.x = 1.0f;
+            }
+            //for vectical bounds
+            if (pos.y + 5.0f > boxBound.max.y)
+            {
+                //if near the top bound box, force it to go down
+                curBoid.targetDirection.y = -1.0f;
+            }
+            else if (pos.y - 5.0f < boxBound.min.y)
+            {
+                //if near the bottom bound box, force it to go up
+                curBoid.targetDirection.y = 1.0f;
+            }
 
 
-        //void DoAvoidObstacleBehaviour(Flock flock)
-        //{
-        //    List<Autonomous> autonomousList = flock.mAutonomous;
-        //    for (int i = 0; i < autonomousList.Count; ++i)
-        //    {
-        //        for (int j = 0; j < mObstacles.Count; ++j)
-        //        {
-        //            float dist = (
-        //            mObstacles[j].transform.position -
-        //            autonomousList[i].transform.position).magnitude;
-        //            if (dist < mObstacles[j].AvoidanceRadius)
-        //            {
-        //                Vector3 targetDirection = (
-        //                    autonomousList[i].transform.position -
-        //                    mObstacles[j].transform.position).normalized;
-
-        //                autonomousList[i].TargetDirection += targetDirection * flock.WEIGHT_AVOID_OBSTICLES;
-        //                autonomousList[i].TargetDirection.Normalize();
-        //            }
-        //        }
-        //    }
-        //}
+            return curBoid;
+        }
+        #endregion
 
         #region equation
         private bool IsEqual(float2 a, float2 b)

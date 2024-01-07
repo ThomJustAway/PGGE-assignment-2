@@ -434,7 +434,7 @@ MonoBehaviour:
   textNumEnemies: {fileID: 1250291134}
   original: 0
   flockbehaviourOriginal: {fileID: 875704704}
-  flockBehaviour: {fileID: 583854982}
+  flockBehaviour: {fileID: 2051155770}
 --- !u!1 &123748669
 GameObject:
   m_ObjectHideFlags: 0
@@ -2480,7 +2480,6 @@ MonoBehaviour:
   - PrefabBoid: {fileID: 1138522166324048232, guid: 1b7bb4e6c0d12884c97216ff0bcde98f, type: 3}
     name: Alien
     numBoids: 10
-    isPredator: 0
     colour: {r: 0, g: 0, b: 0, a: 0}
     rules:
       maxSpeed: 20
@@ -2501,12 +2500,12 @@ MonoBehaviour:
       enemySeparationDistance: 5
       visibility: 10
       bounceWall: 1
+      isPredator: 0
     mAutonomous: []
     transforms: []
   - PrefabBoid: {fileID: 6142921441962972470, guid: ba5aa4577da12d844b13c1caede15f7f, type: 3}
     name: Predators
-    numBoids: 1
-    isPredator: 1
+    numBoids: 20
     colour: {r: 0, g: 0, b: 0, a: 0}
     rules:
       maxSpeed: 20
@@ -2527,6 +2526,7 @@ MonoBehaviour:
       enemySeparationDistance: 5
       visibility: 10
       bounceWall: 1
+      isPredator: 0
     mAutonomous: []
     transforms: []
 --- !u!4 &2051155771
