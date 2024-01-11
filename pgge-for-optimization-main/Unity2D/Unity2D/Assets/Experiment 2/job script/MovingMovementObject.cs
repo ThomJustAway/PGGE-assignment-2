@@ -21,14 +21,13 @@ namespace experimenting2
         public void Execute(int index, TransformAccess transform)
         {//the index are the same after all...
 
+
             MovementObject currentBoid = boidsData[index];
             
             transform.position = currentBoid.position; //ensure it is the current position it was last time
 
             RotateGameObjectBasedOnTargetDirection(currentBoid, transform);
             MoveObject(currentBoid, transform);
-            //currentBoid.position = transform.position;
-            //boidsData[index] = currentBoid; //update the value
         }
 
         private void MoveObject(MovementObject curBoid, TransformAccess transform)

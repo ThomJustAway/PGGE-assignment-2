@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace experimenting2
 {
+    using Assets.Experiment_2.job_script;
     using System;
     using System.Collections;
     using System.Collections.Generic;
@@ -11,6 +12,7 @@ namespace experimenting2
     using Unity.Jobs;
     using Unity.Mathematics;
     using UnityEngine;
+    using UnityEngine.Assertions.Comparers;
     using UnityEngine.EventSystems;
     using UnityEngine.Jobs;
 
@@ -248,6 +250,8 @@ namespace experimenting2
         /// </summary>
         /// <param name="StartingJob"></param>
 
+        
+
         private void StartingJob(Flock flock)
         {
             //fill up the native array with the obstacles for used
@@ -278,6 +282,28 @@ namespace experimenting2
 
             flock.job = movingJob;
             //dont need it anymore now so just dispose it
+        }
+
+        private void StartingJob2(Flock flock)
+        {
+            flock.NativeOutputMovementObjects = new NativeArray<MovementObject>(flock.nativeMovementObjects.Capacity, Allocator.TempJob);
+            NewerBoidsFlockingMovement movementBoids = new NewerBoidsFlockingMovement()
+            {
+                AllTheBoids = flock.nativeMovementObjects,
+                boxBound = Bounds.bounds,
+                deltaTime = Time.deltaTime,
+                obstacles = nativeContainerObstacles,
+                predatorBoids = nativeContainerPredatorBoids,
+                output = flock.NativeOutputMovementObjects,
+                rules = flock.rules,
+            };
+
+            flock.nativeTransformAccessArray = new TransformAccessArray(flock.transforms.ToArray());
+
+            //JobHandle CalculatingJob = calculatingFlockingMovementJob.Schedule(flock.transforms.Count, 1);
+            JobHandle movingJob = movementBoids.Schedule(flock.nativeTransformAccessArray);
+
+            flock.job = movingJob;
         }
 
         /// <summary>
@@ -317,7 +343,82 @@ namespace experimenting2
         }
         #endregion
 
-        
+        #region Mapping
+
+
+        ////have to hard code 16 box so that it can be used later on
+        //NativeList<MovementObject> box0;
+        //NativeList<MovementObject> box1;
+        //NativeList<MovementObject> box2;
+        //NativeList<MovementObject> box3;
+        //NativeList<MovementObject> box4;
+        //NativeList<MovementObject> box5;
+        //NativeList<MovementObject> box6;
+        //NativeList<MovementObject> box7;
+        //NativeList<MovementObject> box8;
+        //NativeList<MovementObject> box9;
+        //NativeList<MovementObject> box10;
+        //NativeList<MovementObject> box11;
+        //NativeList<MovementObject> box12;
+        //NativeList<MovementObject> box13;
+        //NativeList<MovementObject> box14;
+        //NativeList<MovementObject> box15;
+
+
+        //private void MappingBoids()
+        //{
+
+
+        //    foreach(var flock in flocks)
+        //    {
+        //        foreach(var boid in flock.nativeMovementObjects)
+        //        {
+
+        //        }
+        //    }
+        //}
+
+
+        //private void GetBoxByPosition(float3 position)
+        //{
+            
+
+        //}
+
+        //private NativeList<MovementObject> GetNativeBoxList(int i)
+        //{
+        //    //horrible but this is what we have to do for optimising
+        //    switch(i) {
+        //        case 0: return box0; 
+        //        case 1: return box1; 
+        //        case 2: return box2; 
+        //        case 3: return box3; 
+        //        case 4: return box4; 
+        //        case 5: return box5; 
+        //        case 6: return box6; 
+        //        case 7: return box7; 
+        //        case 8: return box8; 
+        //        case 9: return box9; 
+        //        case 10: return box10; 
+        //        case 11: return box11; 
+        //        case 12: return box12; 
+        //        case 13: return box13; 
+        //        case 14: return box14; 
+        //        case 15: return box15; 
+        //        default: return box0;
+        //    }
+        //}
+
+        //private void ClearBox()
+        //{
+        //    for(int i = 0; i < 16; i++)
+        //    {
+        //        var grid = GetNativeBoxList(0);
+        //        grid.Dispose();
+        //    }
+        //}
+
+        #endregion
 
         #region extra methods
 
@@ -339,6 +440,8 @@ namespace experimenting2
  
 
         #endregion
+
+
 
     }
 

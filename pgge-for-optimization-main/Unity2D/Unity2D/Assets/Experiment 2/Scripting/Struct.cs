@@ -65,7 +65,6 @@ namespace experimenting2
         public float visibility;
         public bool bounceWall;
         public bool isPredator ;
-
     }
 
     public struct BoidsObstacle //special struct for the obstacles so that the boids know where to avoid them
@@ -80,4 +79,5 @@ namespace experimenting2
             AvoidanceRadiusMultFactor = 1.5f;
         }
     }
+
 }
