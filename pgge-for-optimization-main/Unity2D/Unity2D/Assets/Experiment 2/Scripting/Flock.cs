@@ -21,8 +21,8 @@ namespace experimenting2
 
         public DataRule rules;
 
-        [HideInInspector]
-        public List<Autonomous> mAutonomous = new List<Autonomous>();
+        //[HideInInspector]
+        //public List<Autonomous> mAutonomous = new List<Autonomous>();
         //public List<MovementObject> movementObjects = new List<MovementObject>();
         [HideInInspector]
         public List<Transform> transforms = new List<Transform>();

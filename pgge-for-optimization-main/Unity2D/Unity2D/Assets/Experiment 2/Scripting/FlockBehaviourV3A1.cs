@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace experimenting2
 {
+    using Assets.Experiment_2.job_script;
     using System;
     using System.Collections;
     using System.Collections.Generic;
@@ -11,6 +12,7 @@ namespace experimenting2
     using Unity.Jobs;
     using Unity.Mathematics;
     using UnityEngine;
+    using UnityEngine.Assertions.Comparers;
     using UnityEngine.EventSystems;
     using UnityEngine.Jobs;
 
@@ -33,22 +35,36 @@ namespace experimenting2
         public NativeList<MovementObject> nativeContainerPredatorBoids;
         private Queue<Action> addBoidsCallBack = new Queue<Action>();
 
+        #region compute shader
+
+        [SerializeField] private int partitionAmount;
+        [SerializeField] private bool useGPU;
+        [SerializeField] private ComputeShader CalculateFlockingComputeShader;
+
+        //compute buffers
+        private ComputeBuffer ComputeBufferCurrentBoid;
+        private ComputeBuffer ComputeBufferAllBoid;
+        private ComputeBuffer ComputeBufferPredatorBoid;
+        private ComputeBuffer ComputeBufferObstacles;
+
+        #endregion
+
         void Reset()
         {
-            ClearMemory();
+            ClearJobSystemMemory();
             flocks = new List<Flock>() { new Flock() };
         }
 
         private void OnDestroy()
         {
-            ClearMemory();
+            ClearJobSystemMemory();
             flocks = new List<Flock>() { new Flock() };
 
         }
 
         private void OnDisable()
         {
-            ClearMemory();
+            ClearJobSystemMemory();
             flocks = new List<Flock>() { new Flock() };
         }
 
@@ -170,32 +186,57 @@ namespace experimenting2
         {
             while (true)
             {
-                if (useFlocking)
+                if (useGPU)
                 {
-                    ClearMemory();
-                    AddBoidsFromCallback();
-                    SettingUpPredatorBoids();
-                    SettingUpObstacle();
-                    foreach (Flock flock in flocks)
-                    {
-                        StartingJob(flock);
-                    }
-                }
-                yield return null;
-                //now just 
+                   
 
-                foreach(var flock  in flocks)
+                    ClearJobSystemMemory();
+                    ClearComputeBuffer();
+
+                    CreateObstacleComputeBuffer();
+                    CreatePredatorComputeBuffer();
+
+                    foreach(Flock flock in flocks)
+                    {//create all the boids for the current flock
+                        CreateAllBoidComputerBuffer(flock);
+                        StartBoidMovement();
+
+                        //loop through all the boids
+
+                    }//calculate all the new target direction and position first
+
+                }
+                else
                 {
-                    flock.job.Complete();
-                    UpdateBoidsData(flock);
+                    //do all the job system work here!
+                    if (useFlocking)
+                    {
+                        ClearJobSystemMemory();
+                        AddBoidsFromCallback();
+                        SettingUpPredatorBoids();
+                        SettingUpObstacle();
+                        foreach (Flock flock in flocks)
+                        {
+                            StartingJob(flock);
+                        }
+                    }
+                    yield return null;
+                    //now just 
+
+                    foreach(var flock  in flocks)
+                    {
+                        flock.job.Complete();
+                        UpdateBoidsData(flock);
+                    }
                 }
             }
         }
 
+        #region job system
         /// <summary>
         /// This is to clear all the memory for all the native array and list that exist in the project.
         /// </summary>
-        private void ClearMemory()
+        private void ClearJobSystemMemory()
         {
             //release memory so that it can be used for the next section
             if (nativeContainerObstacles.IsCreated) nativeContainerObstacles.Dispose();
@@ -248,10 +289,16 @@ namespace experimenting2
         /// </summary>
         /// <param name="StartingJob"></param>
 
+        
+
         private void StartingJob(Flock flock)
         {
             //fill up the native array with the obstacles for used
             flock.NativeOutputMovementObjects = new NativeArray<MovementObject>(flock.nativeMovementObjects.Capacity, Allocator.TempJob);
+
+            uint randomNumber = 5;
+            var random = new Unity.Mathematics.Random(randomNumber);
+
             BoidsFlockingMovement calculatingFlockingMovementJob = new BoidsFlockingMovement()
             {
                 AllTheBoids = flock.nativeMovementObjects,
@@ -259,16 +306,15 @@ namespace experimenting2
                 output = flock.NativeOutputMovementObjects,
                 obstacles = nativeContainerObstacles,
                 boxBound = Bounds.bounds,
-                predatorBoids = nativeContainerPredatorBoids
+                predatorBoids = nativeContainerPredatorBoids,
+                random = random,
             };
 
             MovingMovementObject movingBoidJob = new MovingMovementObject()
             {
                 boidsData = flock.NativeOutputMovementObjects,
-                boxBound = Bounds.bounds,
                 deltaTime = Time.deltaTime,
                 rulesData = flock.rules,
-
             };
 
             flock.nativeTransformAccessArray = new TransformAccessArray(flock.transforms.ToArray());
@@ -278,6 +324,28 @@ namespace experimenting2
 
             flock.job = movingJob;
             //dont need it anymore now so just dispose it
+        }
+
+        private void StartingJob2(Flock flock)
+        {
+            flock.NativeOutputMovementObjects = new NativeArray<MovementObject>(flock.nativeMovementObjects.Capacity, Allocator.TempJob);
+            NewerBoidsFlockingMovement movementBoids = new NewerBoidsFlockingMovement()
+            {
+                AllTheBoids = flock.nativeMovementObjects,
+                boxBound = Bounds.bounds,
+                deltaTime = Time.deltaTime,
+                obstacles = nativeContainerObstacles,
+                predatorBoids = nativeContainerPredatorBoids,
+                output = flock.NativeOutputMovementObjects,
+                rules = flock.rules,
+            };
+
+            flock.nativeTransformAccessArray = new TransformAccessArray(flock.transforms.ToArray());
+
+            //JobHandle CalculatingJob = calculatingFlockingMovementJob.Schedule(flock.transforms.Count, 1);
+            JobHandle movingJob = movementBoids.Schedule(flock.nativeTransformAccessArray);
+
+            flock.job = movingJob;
         }
 
         /// <summary>
@@ -317,7 +385,157 @@ namespace experimenting2
         }
         #endregion
 
-        
+        #region Compute shader
+
+        private void ClearComputeBuffer()
+        {
+            ComputeBufferCurrentBoid.Dispose();
+            ComputeBufferAllBoid.Dispose();
+            ComputeBufferObstacles.Dispose();
+            ComputeBufferPredatorBoid.Dispose();
+        }
+
+        private void CreatePredatorComputeBuffer()
+        {
+            List<MovementObject> predatorList = new List<MovementObject>();
+            foreach(Flock flock in flocks)
+            {
+                if(flock.rules.isPredator)
+                {
+                    foreach(var boid in flock.nativeMovementObjects)
+                    {
+                        predatorList.Add(boid);
+                    }
+                }
+            }
+            //now populated with all the boid that are predator
+            ComputeBufferPredatorBoid = new ComputeBuffer(predatorList.Count , MovementObject.AmountOfData());
+            ComputeBufferPredatorBoid.SetData(predatorList.ToArray());
+        }
+
+        private void CreateObstacleComputeBuffer()
+        {
+            List<BoidsObstacle> obstacleList = new List<BoidsObstacle>();
+            foreach (var obstacle in mObstacles)
+            {
+                obstacleList.Add(obstacle.obstacle);
+            }
+            ComputeBufferObstacles = new ComputeBuffer(obstacleList.Count , BoidsObstacle.AmountOfData());
+            ComputeBufferObstacles.SetData(obstacleList.ToArray());
+        }
+
+        private void CreateAllBoidComputerBuffer(Flock flock)
+        {
+            ComputeBufferAllBoid = new ComputeBuffer(flock.nativeMovementObjects.Count(), MovementObject.AmountOfData());
+            ComputeBufferAllBoid.SetData(flock.nativeMovementObjects.ToArray());
+        }
+
+        private void StartBoidMovement()
+        {
+            foreach (Flock flock in flocks)
+            {
+                flock.NativeOutputMovementObjects = new NativeArray<MovementObject>(flock.nativeMovementObjects.ToArray(), Allocator.TempJob);
+                MovingMovementObject moveJob = new MovingMovementObject()
+                {
+                    boidsData = flock.NativeOutputMovementObjects,
+                    deltaTime = Time.deltaTime,
+                    rulesData = flock.rules,
+                };
+
+                flock.nativeTransformAccessArray = new TransformAccessArray(flock.transforms.ToArray());
+                flock.job = moveJob.Schedule(flock.nativeTransformAccessArray);
+            }
+        }
+
+        private void RecieveBoidMovement()
+        {
+            foreach(Flock flock in flocks)
+            {
+                flock.job.Complete();
+                UpdateBoidsData(flock);
+            }
+        }
+
+        #endregion
+
+        #endregion
+
+        #region Mapping
+
+
+        ////have to hard code 16 box so that it can be used later on
+        //NativeList<MovementObject> box0;
+        //NativeList<MovementObject> box1;
+        //NativeList<MovementObject> box2;
+        //NativeList<MovementObject> box3;
+        //NativeList<MovementObject> box4;
+        //NativeList<MovementObject> box5;
+        //NativeList<MovementObject> box6;
+        //NativeList<MovementObject> box7;
+        //NativeList<MovementObject> box8;
+        //NativeList<MovementObject> box9;
+        //NativeList<MovementObject> box10;
+        //NativeList<MovementObject> box11;
+        //NativeList<MovementObject> box12;
+        //NativeList<MovementObject> box13;
+        //NativeList<MovementObject> box14;
+        //NativeList<MovementObject> box15;
+
+
+        //private void MappingBoids()
+        //{
+
+
+        //    foreach(var flock in flocks)
+        //    {
+        //        foreach(var boid in flock.nativeMovementObjects)
+        //        {
+
+        //        }
+        //    }
+        //}
+
+
+        //private void GetBoxByPosition(float3 position)
+        //{
+
+
+        //}
+
+        //private NativeList<MovementObject> GetNativeBoxList(int i)
+        //{
+        //    //horrible but this is what we have to do for optimising
+        //    switch(i) {
+        //        case 0: return box0; 
+        //        case 1: return box1; 
+        //        case 2: return box2; 
+        //        case 3: return box3; 
+        //        case 4: return box4; 
+        //        case 5: return box5; 
+        //        case 6: return box6; 
+        //        case 7: return box7; 
+        //        case 8: return box8; 
+        //        case 9: return box9; 
+        //        case 10: return box10; 
+        //        case 11: return box11; 
+        //        case 12: return box12; 
+        //        case 13: return box13; 
+        //        case 14: return box14; 
+        //        case 15: return box15; 
+        //        default: return box0;
+        //    }
+        //}
+
+        //private void ClearBox()
+        //{
+        //    for(int i = 0; i < 16; i++)
+        //    {
+        //        var grid = GetNativeBoxList(0);
+        //        grid.Dispose();
+        //    }
+        //}
+
+        #endregion
 
         #region extra methods
 
@@ -339,6 +557,8 @@ namespace experimenting2
  
 
         #endregion
+
+
 
     }
 

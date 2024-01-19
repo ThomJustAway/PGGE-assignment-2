@@ -17,6 +17,7 @@ namespace experimenting
         public Color colour = new Color(1.0f, 1.0f, 1.0f);
         public float maxSpeed = 20.0f;
         public float rotationSpeed = 200.0f;
+
         [Space(10)]
 
         [Header("Flocking Rules")]
@@ -59,5 +60,6 @@ namespace experimenting
 
         [HideInInspector] public List<Transform> boidsTransform;
         [HideInInspector] public List<Boid> boidsInformation;
+
     }
 }

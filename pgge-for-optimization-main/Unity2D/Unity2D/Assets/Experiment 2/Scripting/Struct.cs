@@ -25,6 +25,11 @@ namespace experimenting2
             this.targetSpeed = UnityEngine.Random.Range(4f, speed);
             this.position = position;
         }
+
+        public static int AmountOfData()
+        {
+            return (sizeof(uint) + sizeof(float) * 2 + sizeof(float) * 6);
+        }
     };
 
     [Serializable]
@@ -65,7 +70,6 @@ namespace experimenting2
         public float visibility;
         public bool bounceWall;
         public bool isPredator ;
-
     }
 
     public struct BoidsObstacle //special struct for the obstacles so that the boids know where to avoid them
@@ -79,5 +83,11 @@ namespace experimenting2
             AvoidanceRadius = radius;
             AvoidanceRadiusMultFactor = 1.5f;
         }
+
+        public static int AmountOfData()
+        {
+            return (sizeof(uint) + sizeof(float) * 2 + sizeof(float) * 6);
+        }
     }
+
 }

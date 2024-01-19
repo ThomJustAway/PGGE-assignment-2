@@ -1,0 +1,356 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+struct MovementObject 
+{
+    uint id;
+    float3 targetDirection;
+    float speed;
+    float targetSpeed;
+    float3 position;
+};
+
+struct BoidsObstacle
+{
+    float3 position; 
+    float AvoidanceRadius;
+    float AvoidanceRadiusMultFactor;
+};
+
+bool useCohesionRule;
+bool useAlignmentRule;
+bool useSeparationRule;
+bool useRandomRule;
+bool useAvoidObstaclesRule;
+bool useFleeOnSightEnemyRule;
+bool isPredator;
+bool canBounce;
+
+
+float WEIGHT_COHESION;
+float WEIGHT_SEPERATION;
+float WEIGHT_ALIGNMENT;
+float WEIGHT_RANDOM;
+float WEIGHT_AVOID_OBSTACLES;
+float WEIGHT_FLEE_ENEMY_ON_SIGHT;
+float WEIGHT_SEPARATION;
+
+float maxSpeed;
+float visibility;
+float separationDistance;
+float enemySeparationDistance;
+
+float maxBoundX;
+float maxBoundY;
+float minBoundX;
+float minBoundY;
+float padding;
+
+float rotationSpeed;
+float deltaTime;
+
+uint sizeOfObstacles;
+uint sizeOfFlock;
+uint sizeOfPredatorBoids;
+
+RWStructuredBuffer<MovementObject> otherBoids;
+RWStructuredBuffer<MovementObject> currentBatch;
+RWStructuredBuffer<MovementObject> predatorBoids;
+RWStructuredBuffer<BoidsObstacle> obstacles;
+
+float random(float2 seed, float minValue, float maxValue)
+{
+    return lerp(minValue, maxValue, frac(sin(dot(seed, float2(12.9898, 78.233))) * 43758.5453));
+}
+
+float degreesToRadians(float degrees) {
+    return degrees * (3.1415926535897932384626433832795 / 180.0);
+}
+
+//Fix on the else statement (Completed)
+MovementObject StartCalculatingFlockingRules(int i)
+{
+    float3 alignmentDir = float3(0, 0, 0);;
+    float3 separationDir = float3(0, 0, 0);;
+
+    float speed = 0;
+    float separationSpeed = 0;
+
+    int count = 0;
+
+    float3 steerPos = float3(0, 0, 0);
+
+    MovementObject curr = currentBatch[i];
+
+    for (int j = 0; j < sizeOfFlock; ++j)
+    {
+        //in this for loop, it will go through all the 
+        //boid in the game and see if there is any boids
+        //that is close to the selected boids
+
+        MovementObject other = otherBoids[j];
+
+        if (curr.id == other.id) continue; //if not the same then move on
+
+        float3 direction = curr.position - other.position;
+        float dist = length(direction);
+
+        if (dist < visibility)
+        { //if it is around the current boid visible range (circle)
+            speed += other.speed;
+            alignmentDir += other.targetDirection;
+            steerPos += other.position;
+            count++; //use this count to find the average 
+        }
+
+        if (dist < separationDistance)
+        {//if the distance is lesser than the acceptable range
+
+            //usually this if statement is true so you
+            //can remove this all together
+
+            float3 targetDirection = normalize(direction);
+            //get direction vector from other to current
+
+            separationDir += targetDirection;
+            separationSpeed += dist * WEIGHT_SEPARATION;
+            //how much needs to be seperated base on the distance
+            //this formula can be tweak where the shorter the distance
+            //the more speed required to seperate the boids
+        }
+    }
+
+    if (count > 0)
+    {
+        speed = speed / count;
+        alignmentDir = alignmentDir / count;
+        //getting the average speed and direction the flock needs to go
+
+        alignmentDir = normalize(alignmentDir);
+
+        steerPos = steerPos / count;
+        //finding the average position that the flock is going
+    }
+    //else
+    //{ //if it is equal to 0 then have some changes to the values because
+    //    //the boids can act abit weird
+    //    float randx = random.NextFloat(-1f,1f);
+    //    float randy = random.NextFloat(-1f, 1f);
+
+    //    separationDir = new float3(randx, randy, 0);
+
+    //    float randomLerpValue = random.NextFloat(0, 1f);
+    //    randx = Mathf.Lerp(boxBound.min.x, boxBound.max.x, randomLerpValue);
+    //    randy = Mathf.Lerp(boxBound.min.y, boxBound.max.y, randomLerpValue);
+    //    steerPos = new float3(randx, randy, 0);
+    //}
+
+    float3 flockDirection = (steerPos - curr.position) *
+        (useCohesionRule ? WEIGHT_COHESION : 0.0f);
+    /*
+    get the direction of the flock intended outcome
+    if the cohesion is needed, then multiply it with
+    the weight, else just ignore it
+    */
+
+    float3 separationDirection = separationDir * separationSpeed *
+        (useSeparationRule ? WEIGHT_SEPARATION : 0.0f);
+    /*
+        Get the seperation direction need to seperate from the boid nearby
+        This direction would be ignored if there is no seperation rule is not stated
+        */
+
+    float3 alignmentDirection = alignmentDir * speed *
+        (useAlignmentRule ? WEIGHT_ALIGNMENT : 0.0f);
+    /*
+        Where the boid intended wants to go. 
+        */
+
+    curr.targetDirection = alignmentDirection +
+        separationDirection +
+        flockDirection;
+
+    return curr;
+}
+
+//for random movement (Completed)
+MovementObject DoRandomMovement(MovementObject boid)
+{
+    if (!useRandomRule) return boid;
+
+    //autonomousList[i].TargetDirection.Normalize();
+    boid.targetDirection = normalize(boid.targetDirection);
+    //float rand = Mathf.Lerp(-1f, 1f, boid.targetDirection.x);
+    float2 randSeed = float2(boid.position.x , boid.position.y);
+
+    float rand = random(randSeed , -0.5 , 0.5 ); // rand range
+    float angle = atan2(boid.targetDirection.y, boid.targetDirection.x);
+
+    if (rand > 0.5f)
+    {
+        angle += degreesToRadians(45);
+    }
+    else
+    {
+        angle -= degreesToRadians(45);
+    }
+
+    float3 dir = float3(0,0,0);
+    dir.x = cos(angle);
+    dir.y = sin(angle);
+
+    float randLerpValue = lerp(randSeed, 0 , 1); //lerp value from 0 to 1 
+
+    float speed = lerp(1.0f, maxSpeed , boid.targetDirection.y);
+
+    boid.targetSpeed += speed * WEIGHT_SEPARATION;
+    boid.targetSpeed /= 2.0f;
+
+    boid.targetDirection += dir * WEIGHT_RANDOM;
+
+    boid.targetDirection = normalize(boid.targetDirection);
+
+    return boid;
+
+    //average the speed for the boid
+}
+
+//for avoiding obstacles (Completed)
+MovementObject DoAvoidObstacleBehaviour(MovementObject boid)
+{
+    if (!useAvoidObstaclesRule) return boid;
+
+    for (int j = 0; j < sizeOfObstacles; ++j)
+    {
+        BoidsObstacle currentObstacle = obstacles[j];
+
+        float dist = length(boid.position - currentObstacle.position);
+
+        if (dist < currentObstacle.AvoidanceRadius)
+        {
+            float3 targetDirection = normalize(boid.position - currentObstacle.position);
+
+            boid.targetDirection += targetDirection * WEIGHT_AVOID_OBSTACLES;
+            boid.targetDirection = normalize(boid.targetDirection);
+        }
+    }
+    return boid;
+}
+//for handling boundries
+MovementObject DoAvoidPredatorBoidsBehaviour(MovementObject boid)
+{
+    //ignore this rules if the boid dont have to flee predator or if the boid is a predator
+    if(!useFleeOnSightEnemyRule || isPredator) return boid;
+            
+    //do the calculation
+    for(int i = 0 ; i < sizeOfPredatorBoids; i++ )
+    {
+        MovementObject predator = predatorBoids[i];
+        float3 targetDirection = predator.position - boid.position;
+        float distanceFromEnemy = length(targetDirection); 
+
+        if (distanceFromEnemy < enemySeparationDistance)
+        { //within range of the visible enemy
+            targetDirection = normalize(targetDirection);
+
+            boid.targetDirection += targetDirection;
+            boid.targetDirection = normalize(boid.targetDirection);
+
+            boid.targetSpeed += distanceFromEnemy * WEIGHT_FLEE_ENEMY_ON_SIGHT;
+            boid.targetSpeed /= 2.0f;
+        }
+    }
+    return boid;
+}
+
+//complete refactoring
+MovementObject TeleportBoid(MovementObject boid)
+{
+    //reduce extern calls
+    float3 pos = boid.position;
+
+    if (pos.x > maxBoundX)// boxBound.max.x
+    {
+        //teleport boid to the left side of the map
+        pos.x = minBoundX;
+    }
+    else if (pos.x < minBoundX)
+    {
+        //teleport boid to the right side of the map
+        pos.x = maxBoundX;
+    }
+
+    if (pos.y > maxBoundY)
+    {
+        //teleport boid to the bottom of the map
+        pos.y = minBoundY;
+    }
+    else if (pos.y < minBoundY)
+    {
+        //teleport boid to the top of the map
+        pos.y = maxBoundY;
+    }
+
+    boid.position = pos;
+    return boid;
+}
+
+//complete refactoring
+MovementObject BounceBoid(MovementObject curBoid)
+{
+    float3 pos = curBoid.position;
+
+    curBoid.targetDirection = normalize(curBoid.targetDirection);
+
+    //for horizontal bounds
+    if (pos.x + 5.0f > maxBoundX)
+    {
+        //if near the right bound box, force it to go left
+        curBoid.targetDirection.x = -1.0f;
+    }
+    else if (pos.x - 5.0f < minBoundX)
+    {
+        //if near the left bound box, force it to go right
+        curBoid.targetDirection.x = 1.0f;
+    }
+    //for vectical bounds
+    if (pos.y + 5.0f > maxBoundY)
+    {
+        //if near the top bound box, force it to go down
+        curBoid.targetDirection.y = -1.0f;
+    }
+    else if (pos.y - 5.0f < minBoundY)
+    {
+        //if near the bottom bound box, force it to go up
+        curBoid.targetDirection.y = 1.0f;
+    }
+
+    return curBoid;
+}
+
+MovementObject HandleBoundries(MovementObject boid)
+{
+    if (canBounce)
+    {
+        return BounceBoid(boid);
+    }
+    else
+    {
+        return TeleportBoid(boid);
+    }
+}
+
+
+
+[numthreads(1000, 1, 1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+	MovementObject curr = StartCalculatingFlockingRules(id.x);
+    curr = DoRandomMovement(curr); //apply random movement to the boid
+    curr = DoAvoidObstacleBehaviour(curr); //apply avoid obstalce Behaviour to the boid
+    curr = DoAvoidPredatorBoidsBehaviour(curr); //apply the predator for the boids
+    curr = HandleBoundries(curr);//apply boundries to the boids
+    //add this together to form the final direction needed for the boid.
+    //place it into the output index so that it can be sed for the moving movementObject.
+    currentBatch[id.x] = curr;
+}
