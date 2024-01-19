@@ -5,35 +5,30 @@ using UnityEngine.SceneManagement;
 
 public class Menu : MonoBehaviour
 {
-    // Start is called before the first frame update
-    void Start()
-    {
-        
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
 
     public void OnClickSinglePlayer()
     {
         //Debug.Log("Loading singleplayer game");
-        SceneManager.LoadScene("SinglePlayer");
+        StartCoroutine(ButtonClick("SinglePlayer"));
     }
 
     public void OnClickMultiPlayer()
     {
         //Debug.Log("Loading multiplayer game");
-        SceneManager.LoadScene("Multiplayer_Launcher");
+        StartCoroutine( ButtonClick("Multiplayer_Launcher"));
     }
 
     public void OnClickReturn()
     {
-        SceneManager.LoadScene("Menu");
+        StartCoroutine(ButtonClick("Menu"));
     }
 
-    
+    IEnumerator ButtonClick(string sceneName)
+    {
+        print(sceneName);
+        GameApp.Instance.soundPlayer.PlayAudio(SFXClip.buttonClick);
+        yield return new WaitForSeconds(1.5f);
+        SceneManager.LoadScene(sceneName);
+    }
 
 }

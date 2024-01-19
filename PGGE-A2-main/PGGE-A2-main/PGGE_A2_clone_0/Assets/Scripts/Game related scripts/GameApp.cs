@@ -7,9 +7,11 @@ using UnityEngine.SceneManagement;
 public class GameApp : Singleton<GameApp>
 {
     private bool mPause;
+    public SoundPlayer soundPlayer { get; private set; }
 
     void Start()
     {
+        soundPlayer = GetComponent<SoundPlayer>();
         mPause = false;
         SceneManager.LoadScene("Menu");
     }
@@ -41,7 +43,6 @@ public class GameApp : Singleton<GameApp>
         }
     }    
     
-    // called first
     void OnEnable()
     {
         Debug.Log("OnEnable called");
@@ -60,11 +61,12 @@ public class GameApp : Singleton<GameApp>
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         Debug.Log("OnSceneLoaded - Scene Index: " + scene.buildIndex + " Scene Name: " + scene.name);
-        //Debug.Log(mode);
     }
 
     void OnSceneLoaded2(Scene scene, LoadSceneMode mode)
     {
         Debug.Log("Hello. Welocome to my scene.");
     }
+
+
 }

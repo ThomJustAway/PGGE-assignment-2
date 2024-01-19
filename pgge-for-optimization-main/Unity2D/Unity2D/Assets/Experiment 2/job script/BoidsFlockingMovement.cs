@@ -10,7 +10,6 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Jobs;
-using static Unity.Collections.AllocatorManager;
 
 namespace experimenting2
 {
@@ -32,6 +31,7 @@ namespace experimenting2
         public NativeArray<MovementObject> output;
         public DataRule rules;
         public Bounds boxBound;
+        public Unity.Mathematics.Random random;
 
         public void Execute(int index) 
         {
@@ -112,16 +112,12 @@ namespace experimenting2
             else
             { //if it is equal to 0 then have some changes to the values because
               //the boids can act abit weird
-                float randx = Mathf.Cos(curr.position.x);
-                float randy = Mathf.Sin(curr.position.y);
+                float randx = random.NextFloat(-1f,1f);
+                float randy = random.NextFloat(-1f, 1f);
 
                 separationDir = new float3(randx, randy, 0);
 
-                float randomLerpValue = separationDir.x;
-                if (randomLerpValue < 0)
-                {
-                    randomLerpValue = -randomLerpValue; //make it positive
-                }
+                float randomLerpValue = random.NextFloat(0, 1f);
                 randx = Mathf.Lerp(boxBound.min.x, boxBound.max.x, randomLerpValue);
                 randy = Mathf.Lerp(boxBound.min.y, boxBound.max.y, randomLerpValue);
                 steerPos = new float3(randx, randy, 0);
@@ -161,7 +157,8 @@ namespace experimenting2
 
             //autonomousList[i].TargetDirection.Normalize();
             boid.targetDirection = Normalise(boid.targetDirection);
-            float rand = Mathf.Lerp(-1f, 1f, boid.targetDirection.x);
+            //float rand = Mathf.Lerp(-1f, 1f, boid.targetDirection.x);
+            float rand = random.NextFloat(-1f, 1f);
             float angle = Mathf.Atan2(boid.targetDirection.y, boid.targetDirection.x);
 
             if (rand > 0.5f)
@@ -213,7 +210,6 @@ namespace experimenting2
             return boid;
         }
         //for handling boundries
-
         private MovementObject DoAvoidPredatorBoidsBehaviour(MovementObject boid)
         {
             //ignore this rules if the boid dont have to flee predator or if the boid is a predator

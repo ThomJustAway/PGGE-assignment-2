@@ -319,6 +319,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1531916530}
   - component: {fileID: 1531916531}
+  - component: {fileID: 1531916532}
   m_Layer: 0
   m_Name: GameApp
   m_TagString: Untagged
@@ -353,3 +354,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 31aabbd3c2917be42afb114c4cb762b0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &1531916532
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1531916529}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35e9785398ae7654ca47042abcd17219, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  musicClips:
+  - sfx: 2
+    clip: {fileID: 8300000, guid: a120870e8a6b5544c891974b9d40bdd4, type: 3}
+    source: {fileID: 0}
+    volume: 1
+    pitch: 1

@@ -7,18 +7,11 @@ public class FixedTouchField : MonoBehaviour, IPointerDownHandler, IPointerUpHan
     public Vector2 TouchDist;
     [HideInInspector]
     public Vector2 PointerOld;
+
     [HideInInspector]
     protected int PointerId;
     [HideInInspector]
     public bool Pressed;
-
-    // Use this for initialization
-    void Start()
-    {
-
-    }
-
-    // Update is called once per frame
     void Update()
     {
         if (Pressed)

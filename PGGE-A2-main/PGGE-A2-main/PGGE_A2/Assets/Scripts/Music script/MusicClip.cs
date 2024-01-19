@@ -1,15 +1,18 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using UnityEngine;
 
 namespace Assets.Scripts.Music_script
 {
-    [SerializeField]
+    [Serializable]
     public struct MusicClip 
     {
+        public SFXClip sfx;
         public AudioClip clip;
-        public AudioSource source;
-        
+        [HideInInspector] public AudioSource source;
+        [Range(0,1)]
         public float volume;
+        [Range(-3,3)]
         public float pitch;
     }
 }

@@ -5,7 +5,7 @@ using Photon.Pun;
  
 namespace PGGE.Player
 {
-    public class Player_Multiplayer : MonoBehaviour
+    public class Player_Multiplayer : MonoBehaviour , IDamageable
     {
         private PhotonView mPhotonView;
 
@@ -34,7 +34,11 @@ namespace PGGE.Player
         public LayerMask mPlayerMask;
         public Canvas mCanvas;
         public RectTransform mCrossHair;
-
+        public RectTransform HealthUI;
+        private float maxHealthUIWidth;
+        private const float maxHealth = 100;
+        public float health = maxHealth;
+        public float damageFromBullet = 10;
 
         public GameObject mBulletPrefab;
         public float mBulletSpeed = 10.0f;
@@ -47,6 +51,8 @@ namespace PGGE.Player
         // Start is called before the first frame update
         void Start()
         {
+            maxHealthUIWidth = HealthUI.rect.width;
+            print(maxHealthUIWidth);
             mPhotonView = GetComponent<PhotonView>();
 
             mFsm.Add(new PlayerState_Multiplayer_MOVEMENT(this));
@@ -230,6 +236,29 @@ namespace PGGE.Player
             mFiring[id] = false;
             mBulletsInMagazine -= 1;
         }
+
+        public void TakeDamage()
+        {
+            health -= damageFromBullet; //substract of the health;
+            if(health < 0)
+            {
+                health = 0;
+                mAnimator.SetTrigger("Die");
+            }
+            ShowDamageTaken();
+        }
+
+        private void ShowDamageTaken()
+        {
+            var normaliseValue = health / maxHealth;
+            var currentUIHealth = Mathf.Lerp(0, maxHealthUIWidth , normaliseValue);
+            Vector2 sizeOfRect = HealthUI.sizeDelta;
+            sizeOfRect.x = currentUIHealth;
+            HealthUI.sizeDelta = sizeOfRect;
+        }
+
+        
+
     }
 
 }

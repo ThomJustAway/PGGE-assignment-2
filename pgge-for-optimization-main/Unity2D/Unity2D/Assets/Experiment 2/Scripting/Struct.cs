@@ -25,6 +25,11 @@ namespace experimenting2
             this.targetSpeed = UnityEngine.Random.Range(4f, speed);
             this.position = position;
         }
+
+        public static int AmountOfData()
+        {
+            return (sizeof(uint) + sizeof(float) * 2 + sizeof(float) * 6);
+        }
     };
 
     [Serializable]
@@ -77,6 +82,11 @@ namespace experimenting2
             this.position = position;
             AvoidanceRadius = radius;
             AvoidanceRadiusMultFactor = 1.5f;
+        }
+
+        public static int AmountOfData()
+        {
+            return (sizeof(uint) + sizeof(float) * 2 + sizeof(float) * 6);
         }
     }
 

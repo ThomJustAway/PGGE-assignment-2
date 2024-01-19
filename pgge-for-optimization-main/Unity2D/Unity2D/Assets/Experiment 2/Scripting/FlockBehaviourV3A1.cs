@@ -256,6 +256,10 @@ namespace experimenting2
         {
             //fill up the native array with the obstacles for used
             flock.NativeOutputMovementObjects = new NativeArray<MovementObject>(flock.nativeMovementObjects.Capacity, Allocator.TempJob);
+
+            uint randomNumber = 5;
+            var random = new Unity.Mathematics.Random(randomNumber);
+
             BoidsFlockingMovement calculatingFlockingMovementJob = new BoidsFlockingMovement()
             {
                 AllTheBoids = flock.nativeMovementObjects,
@@ -263,7 +267,8 @@ namespace experimenting2
                 output = flock.NativeOutputMovementObjects,
                 obstacles = nativeContainerObstacles,
                 boxBound = Bounds.bounds,
-                predatorBoids = nativeContainerPredatorBoids
+                predatorBoids = nativeContainerPredatorBoids,
+                random = random,
             };
 
             MovingMovementObject movingBoidJob = new MovingMovementObject()

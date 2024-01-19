@@ -51,13 +51,13 @@ namespace PGGE.Player
 
         void Update()
         {
-            mFsm.Update();
-            Aim();
-
-            // For Student ----------------------------------------------------//
-            // Implement the logic of button clicks for shooting. 
-            //-----------------------------------------------------------------//
-
+            mFsm.Update(); //change the state based on the values
+            Aim(); //change the crosshair of the player
+            HandleMouseInput(); //activate the attack sequence if sense mouse input.
+        }
+        #region Handle input
+        private void HandleMouseInput()
+        {
             if (Input.GetButton("Fire1"))
             {
                 mAttackButtons[0] = true;
@@ -91,6 +91,12 @@ namespace PGGE.Player
                 mAttackButtons[2] = false;
             }
         }
+        public void Move()
+        {
+            mPlayerMovement.HandleInputs();
+            mPlayerMovement.Move();
+        }
+        #endregion
 
         public void Aim()
         {
@@ -167,11 +173,6 @@ namespace PGGE.Player
             }
         }
 
-        public void Move()
-        {
-            mPlayerMovement.HandleInputs();
-            mPlayerMovement.Move();
-        }
 
         public void NoAmmo()
         {
