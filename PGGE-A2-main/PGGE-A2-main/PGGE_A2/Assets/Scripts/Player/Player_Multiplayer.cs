@@ -7,46 +7,51 @@ namespace PGGE.Player
 {
     public class Player_Multiplayer : MonoBehaviour , IDamageable
     {
+        //for networking
         private PhotonView mPhotonView;
 
+        //multi purpose movement
         [HideInInspector]
         public FSM mFsm = new FSM();
         public Animator mAnimator;
         public PlayerMovement mPlayerMovement;
 
+        #region shooting variables
         // This is the maximum number of bullets that the player 
         // needs to fire before reloading.
-        public int mMaxAmunitionBeforeReload = 40;
-
         // This is the total number of bullets that the 
         // player has.
-        [HideInInspector]
-        public int mAmunitionCount = 100;
-
         // This is the count of bullets in the magazine.
+        [HideInInspector]
+        public bool[] mAttackButtons = new bool[3];
+        public float damageFromBullet = 10;
+        public GameObject mBulletPrefab;
+        public float mBulletSpeed = 10.0f;
+        public int[] RoundsPerSecond = new int[3];
+
         [HideInInspector]
         public int mBulletsInMagazine = 40;
 
         [HideInInspector]
-        public bool[] mAttackButtons = new bool[3];
+        public int mAmunitionCount = 100;
+        public int mMaxAmunitionBeforeReload = 40;
 
         public Transform mGunTransform;
+        public string bulletPrefabsName;
+        bool[] mFiring = new bool[3];
+        #endregion
+
+        
         public LayerMask mPlayerMask;
         public Canvas mCanvas;
         public RectTransform mCrossHair;
         public RectTransform HealthUI;
+
+        #region health
         private float maxHealthUIWidth;
         private const float maxHealth = 100;
         public float health = maxHealth;
-        public float damageFromBullet = 10;
-
-        public GameObject mBulletPrefab;
-        public float mBulletSpeed = 10.0f;
-
-        public int[] RoundsPerSecond = new int[3];
-        bool[] mFiring = new bool[3];
-        public string bulletPrefabsName;
-
+        #endregion
 
         // Start is called before the first frame update
         void Start()
@@ -256,8 +261,6 @@ namespace PGGE.Player
             sizeOfRect.x = currentUIHealth;
             HealthUI.sizeDelta = sizeOfRect;
         }
-
-        
 
     }
 

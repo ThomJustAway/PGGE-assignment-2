@@ -68,5 +68,4 @@ public class GameApp : Singleton<GameApp>
         Debug.Log("Hello. Welocome to my scene.");
     }
 
-
 }

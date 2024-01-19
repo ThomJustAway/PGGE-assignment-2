@@ -12,25 +12,33 @@ struct MovementObject
 
 struct BoidsObstacle
 {
-    public float3 position; //the position of the obstacle 
-    public float AvoidanceRadius;
-    public float AvoidanceRadiusMultFactor;
+    float3 position; 
+    float AvoidanceRadius;
+    float AvoidanceRadiusMultFactor;
 };
 
 bool useCohesionRule;
 bool useAlignmentRule;
 bool useSeparationRule;
 bool useRandomRule;
+bool useAvoidObstaclesRule;
+bool useFleeOnSightEnemyRule;
+bool isPredator;
 bool canBounce;
+
 
 float WEIGHT_COHESION;
 float WEIGHT_SEPERATION;
 float WEIGHT_ALIGNMENT;
 float WEIGHT_RANDOM;
+float WEIGHT_AVOID_OBSTACLES;
+float WEIGHT_FLEE_ENEMY_ON_SIGHT;
+float WEIGHT_SEPARATION;
 
 float maxSpeed;
 float visibility;
 float separationDistance;
+float enemySeparationDistance;
 
 float maxBoundX;
 float maxBoundY;
@@ -41,31 +49,36 @@ float padding;
 float rotationSpeed;
 float deltaTime;
 
-uint sizeOfObject;
+uint sizeOfObstacles;
 uint sizeOfFlock;
 uint sizeOfPredatorBoids;
 
-RWStructuredBuffer<Boid> otherBoids;
-RWStructuredBuffer<Boid> currentBatch;
-RWStructuredBuffer<Boid> predatorBoitds;
+RWStructuredBuffer<MovementObject> otherBoids;
+RWStructuredBuffer<MovementObject> currentBatch;
+RWStructuredBuffer<MovementObject> predatorBoids;
+RWStructuredBuffer<BoidsObstacle> obstacles;
 
 float random(float2 seed, float minValue, float maxValue)
 {
     return lerp(minValue, maxValue, frac(sin(dot(seed, float2(12.9898, 78.233))) * 43758.5453));
 }
 
-//work on this now
-private MovementObject StartCalculatingFlockingRules(int i)
-{
-    float3 alignmentDir = new float3(0f, 0f, 0f);;
-    float3 separationDir = new float3(0f, 0f, 0f);;
+float degreesToRadians(float degrees) {
+    return degrees * (3.1415926535897932384626433832795 / 180.0);
+}
 
-    float speed = 0.0f;
-    float separationSpeed = 0.0f;
+//Fix on the else statement (Completed)
+MovementObject StartCalculatingFlockingRules(int i)
+{
+    float3 alignmentDir = float3(0, 0, 0);;
+    float3 separationDir = float3(0, 0, 0);;
+
+    float speed = 0;
+    float separationSpeed = 0;
 
     int count = 0;
 
-    float3 steerPos = new float3(0f, 0f, 0f);
+    float3 steerPos = float3(0, 0, 0);
 
     MovementObject curr = currentBatch[i];
 
@@ -80,7 +93,7 @@ private MovementObject StartCalculatingFlockingRules(int i)
         if (curr.id == other.id) continue; //if not the same then move on
 
         float3 direction = curr.position - other.position;
-        float dist = Magnitude(direction);
+        float dist = length(direction);
 
         if (dist < visibility)
         { //if it is around the current boid visible range (circle)
@@ -90,13 +103,13 @@ private MovementObject StartCalculatingFlockingRules(int i)
             count++; //use this count to find the average 
         }
 
-        if (dist < rules.separationDistance)
+        if (dist < separationDistance)
         {//if the distance is lesser than the acceptable range
 
             //usually this if statement is true so you
             //can remove this all together
 
-            float3 targetDirection = Normalise(direction);
+            float3 targetDirection = normalize(direction);
             //get direction vector from other to current
 
             separationDir += targetDirection;
@@ -113,28 +126,27 @@ private MovementObject StartCalculatingFlockingRules(int i)
         alignmentDir = alignmentDir / count;
         //getting the average speed and direction the flock needs to go
 
-        alignmentDir = Normalise(alignmentDir);
+        alignmentDir = normalize(alignmentDir);
 
         steerPos = steerPos / count;
         //finding the average position that the flock is going
     }
-    else
-    { //if it is equal to 0 then have some changes to the values because
-        //the boids can act abit weird
-        float randx = random.NextFloat(-1f,1f);
-        float randy = random.NextFloat(-1f, 1f);
+    //else
+    //{ //if it is equal to 0 then have some changes to the values because
+    //    //the boids can act abit weird
+    //    float randx = random.NextFloat(-1f,1f);
+    //    float randy = random.NextFloat(-1f, 1f);
 
-        separationDir = new float3(randx, randy, 0);
+    //    separationDir = new float3(randx, randy, 0);
 
-        float randomLerpValue = random.NextFloat(0, 1f);
-        randx = Mathf.Lerp(boxBound.min.x, boxBound.max.x, randomLerpValue);
-        randy = Mathf.Lerp(boxBound.min.y, boxBound.max.y, randomLerpValue);
-        steerPos = new float3(randx, randy, 0);
-    }
+    //    float randomLerpValue = random.NextFloat(0, 1f);
+    //    randx = Mathf.Lerp(boxBound.min.x, boxBound.max.x, randomLerpValue);
+    //    randy = Mathf.Lerp(boxBound.min.y, boxBound.max.y, randomLerpValue);
+    //    steerPos = new float3(randx, randy, 0);
+    //}
 
     float3 flockDirection = (steerPos - curr.position) *
-        (rules.useCohesionRule ? rules.WEIGHT_COHESION : 0.0f);
-
+        (useCohesionRule ? WEIGHT_COHESION : 0.0f);
     /*
     get the direction of the flock intended outcome
     if the cohesion is needed, then multiply it with
@@ -142,14 +154,14 @@ private MovementObject StartCalculatingFlockingRules(int i)
     */
 
     float3 separationDirection = separationDir * separationSpeed *
-        (rules.useSeparationRule ? rules.WEIGHT_SEPARATION : 0.0f);
+        (useSeparationRule ? WEIGHT_SEPARATION : 0.0f);
     /*
         Get the seperation direction need to seperate from the boid nearby
         This direction would be ignored if there is no seperation rule is not stated
         */
 
     float3 alignmentDirection = alignmentDir * speed *
-        (rules.useAlignmentRule ? rules.WEIGHT_ALIGNMENT : 0.0f);
+        (useAlignmentRule ? WEIGHT_ALIGNMENT : 0.0f);
     /*
         Where the boid intended wants to go. 
         */
@@ -157,109 +169,102 @@ private MovementObject StartCalculatingFlockingRules(int i)
     curr.targetDirection = alignmentDirection +
         separationDirection +
         flockDirection;
+
     return curr;
 }
-//for random movement
-private MovementObject DoRandomMovement(MovementObject boid)
+
+//for random movement (Completed)
+MovementObject DoRandomMovement(MovementObject boid)
 {
-    if (!rules.useRandomRule) return boid;
+    if (!useRandomRule) return boid;
 
     //autonomousList[i].TargetDirection.Normalize();
-    boid.targetDirection = Normalise(boid.targetDirection);
+    boid.targetDirection = normalize(boid.targetDirection);
     //float rand = Mathf.Lerp(-1f, 1f, boid.targetDirection.x);
-    float rand = random.NextFloat(-1f, 1f);
-    float angle = Mathf.Atan2(boid.targetDirection.y, boid.targetDirection.x);
+    float2 randSeed = float2(boid.position.x , boid.position.y);
+
+    float rand = random(randSeed , -0.5 , 0.5 ); // rand range
+    float angle = atan2(boid.targetDirection.y, boid.targetDirection.x);
 
     if (rand > 0.5f)
     {
-        angle += Mathf.Deg2Rad * 45.0f;
+        angle += degreesToRadians(45);
     }
     else
     {
-        angle -= Mathf.Deg2Rad * 45.0f;
+        angle -= degreesToRadians(45);
     }
 
-    float3 dir = Vector3.zero;
-    dir.x = Mathf.Cos(angle);
-    dir.y = Mathf.Sin(angle);
+    float3 dir = float3(0,0,0);
+    dir.x = cos(angle);
+    dir.y = sin(angle);
 
-    float speed = Mathf.Lerp(1.0f, rules.maxSpeed , boid.targetDirection.y);
+    float randLerpValue = lerp(randSeed, 0 , 1); //lerp value from 0 to 1 
 
-    boid.targetSpeed += speed * rules.WEIGHT_SEPARATION;
+    float speed = lerp(1.0f, maxSpeed , boid.targetDirection.y);
+
+    boid.targetSpeed += speed * WEIGHT_SEPARATION;
     boid.targetSpeed /= 2.0f;
 
-    boid.targetDirection += dir * rules.WEIGHT_RANDOM;
+    boid.targetDirection += dir * WEIGHT_RANDOM;
 
-    boid.targetDirection = Normalise(boid.targetDirection);
+    boid.targetDirection = normalize(boid.targetDirection);
 
     return boid;
 
-
     //average the speed for the boid
 }
-//for avoiding obstacles
 
-private MovementObject DoAvoidObstacleBehaviour(MovementObject boid)
+//for avoiding obstacles (Completed)
+MovementObject DoAvoidObstacleBehaviour(MovementObject boid)
 {
-    if (!rules.useAvoidObstaclesRule) return boid;
+    if (!useAvoidObstaclesRule) return boid;
 
-    for (int j = 0; j < obstacles.Length; ++j)
+    for (int j = 0; j < sizeOfObstacles; ++j)
     {
-        var currentObstacle = obstacles[j];
+        BoidsObstacle currentObstacle = obstacles[j];
 
-        float dist = Magnitude(boid.position - currentObstacle.position);
+        float dist = length(boid.position - currentObstacle.position);
 
         if (dist < currentObstacle.AvoidanceRadius)
         {
-            float3 targetDirection = Normalise(boid.position - currentObstacle.position);
+            float3 targetDirection = normalize(boid.position - currentObstacle.position);
 
-            boid.targetDirection += targetDirection * rules.WEIGHT_AVOID_OBSTACLES;
-            boid.targetDirection = Normalise(boid.targetDirection);
+            boid.targetDirection += targetDirection * WEIGHT_AVOID_OBSTACLES;
+            boid.targetDirection = normalize(boid.targetDirection);
         }
     }
     return boid;
 }
 //for handling boundries
-
-private MovementObject DoAvoidPredatorBoidsBehaviour(MovementObject boid)
+MovementObject DoAvoidPredatorBoidsBehaviour(MovementObject boid)
 {
     //ignore this rules if the boid dont have to flee predator or if the boid is a predator
-    if(!rules.useFleeOnSightEnemyRule || rules.isPredator) return boid;
+    if(!useFleeOnSightEnemyRule || isPredator) return boid;
             
     //do the calculation
-    foreach(var predator in predatorBoids)
+    for(int i = 0 ; i < sizeOfPredatorBoids; i++ )
     {
-        var targetDirection = predator.position - boid.position;
-        var distanceFromEnemy = Magnitude(targetDirection); 
+        MovementObject predator = predatorBoids[i];
+        float3 targetDirection = predator.position - boid.position;
+        float distanceFromEnemy = length(targetDirection); 
 
-        if (distanceFromEnemy < rules.enemySeparationDistance)
+        if (distanceFromEnemy < enemySeparationDistance)
         { //within range of the visible enemy
-            targetDirection = Normalise(targetDirection);
+            targetDirection = normalize(targetDirection);
 
             boid.targetDirection += targetDirection;
-            boid.targetDirection = Normalise(boid.targetDirection);
+            boid.targetDirection = normalize(boid.targetDirection);
 
-            boid.targetSpeed += distanceFromEnemy * rules.WEIGHT_FLEE_ENEMY_ON_SIGHT;
+            boid.targetSpeed += distanceFromEnemy * WEIGHT_FLEE_ENEMY_ON_SIGHT;
             boid.targetSpeed /= 2.0f;
         }
     }
     return boid;
 }
 
-private MovementObject HandleBoundries(MovementObject boid)
-{
-    if (canBounce)
-    {
-        return BounceBoid(boid);
-    }
-    else
-    {
-        return TeleportBoid(boid);
-    }
-}
-
 //complete refactoring
-private MovementObject TeleportBoid(MovementObject boid)
+MovementObject TeleportBoid(MovementObject boid)
 {
     //reduce extern calls
     float3 pos = boid.position;
@@ -291,11 +296,11 @@ private MovementObject TeleportBoid(MovementObject boid)
 }
 
 //complete refactoring
-private MovementObject BounceBoid(MovementObject curBoid)
+MovementObject BounceBoid(MovementObject curBoid)
 {
     float3 pos = curBoid.position;
 
-    curBoid.targetDirection = Normalise(curBoid.targetDirection);
+    curBoid.targetDirection = normalize(curBoid.targetDirection);
 
     //for horizontal bounds
     if (pos.x + 5.0f > maxBoundX)
@@ -323,6 +328,20 @@ private MovementObject BounceBoid(MovementObject curBoid)
     return curBoid;
 }
 
+MovementObject HandleBoundries(MovementObject boid)
+{
+    if (canBounce)
+    {
+        return BounceBoid(boid);
+    }
+    else
+    {
+        return TeleportBoid(boid);
+    }
+}
+
+
+
 [numthreads(1000, 1, 1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
@@ -333,5 +352,5 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     curr = HandleBoundries(curr);//apply boundries to the boids
     //add this together to form the final direction needed for the boid.
     //place it into the output index so that it can be sed for the moving movementObject.
-    currentBatch[index] = curr;
+    currentBatch[id.x] = curr;
 }

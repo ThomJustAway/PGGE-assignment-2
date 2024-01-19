@@ -14,14 +14,11 @@ namespace experimenting2
         [ReadOnly] public NativeArray<MovementObject> boidsData;
         public float deltaTime;
         public DataRule rulesData;
-        public Bounds boxBound;
 
         //problem: why does the boids disappear after a set frame?
 
         public void Execute(int index, TransformAccess transform)
         {//the index are the same after all...
-
-
             MovementObject currentBoid = boidsData[index];
             
             transform.position = currentBoid.position; //ensure it is the current position it was last time

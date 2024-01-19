@@ -43,17 +43,23 @@ namespace experimenting
 
         public int BoidIncr = 100; //the number of boid to spawn
         public bool useFlocking = false;
+
+
         public int BatchSize = 1000;
 
         [SerializeField] private ComputeShader flockingCalculation;
 
         public List<Flock> flocks = new List<Flock>();
 
+        #region for job system
         private JobHandle movementJob;
         private TransformAccessArray temporaryTransformStorageContainer;
         private NativeArray<Boid> boidsNativeArray;
+        #endregion
+
         private Queue<Action> addingBoidsCallback;
 
+        
         void Reset()
         {
             boidsNativeArray.Dispose();
@@ -604,23 +610,6 @@ namespace experimenting
 
             //TeleportAutonomoous(listOfObstacle);
         }
-
-        //add this to the job system later
-        //private void Rule_CrossBorder()
-        //{
-        //    foreach (Flock flock in flocks)
-        //    {
-        //        List<Autonomous> autonomousList = flock.mAutonomous;
-        //        if (flock.bounceWall)
-        //        {
-        //            BounceAutonomous(autonomousList);
-        //        }
-        //        else
-        //        {
-        //            TeleportAutonomous(autonomousList);
-        //        }
-        //    }
-        //}
 
         private void TeleportAutonomous(List<Autonomous> autonomousList)
         {

@@ -18,20 +18,22 @@ public class ThirdPersonCamera : MonoBehaviour
 
     TPCBase mThirdPersonCamera;
     // Get from Unity Editor.
+    #region values regarding camera movement
     public Vector3 mPositionOffset = new Vector3(0.0f, 2.0f, -2.5f);
     public Vector3 mAngleOffset = new Vector3(0.0f, 0.0f, 0.0f);
     [Tooltip("The damping factor to smooth the changes in position and rotation of the camera.")]
     public float mDamping = 1.0f;
-
     public float mMinPitch = -30.0f;
     public float mMaxPitch = 30.0f;
     public float mRotationSpeed = 50.0f;
-    public FixedTouchField mTouchField;
+    #endregion
 
+    #region camera settings
+    public FixedTouchField mTouchField;
     public CameraType mCameraType = CameraType.Follow_Track_Pos;
     Dictionary<CameraType, TPCBase> mThirdPersonCameraDict = new Dictionary<CameraType, TPCBase>();
-
     private bool mInitialized = false;
+    #endregion
 
     void Start()
     {
@@ -42,7 +44,6 @@ public class ThirdPersonCamera : MonoBehaviour
         CameraConstants.MinPitch = mMinPitch;
         CameraConstants.MaxPitch = mMaxPitch;
         CameraConstants.RotationSpeed = mRotationSpeed;
-
     }
 
     public void Init()
