@@ -4,6 +4,7 @@ using UnityEngine;
 namespace experimenting2
 {
     using Assets.Experiment_2.job_script;
+    using experimenting;
     using System;
     using System.Collections;
     using System.Collections.Generic;
@@ -15,6 +16,7 @@ namespace experimenting2
     using UnityEngine.Assertions.Comparers;
     using UnityEngine.EventSystems;
     using UnityEngine.Jobs;
+    using UnityEngine.UIElements;
 
     public class FlockBehaviourV3A1 : MonoBehaviour
     {
@@ -36,10 +38,10 @@ namespace experimenting2
         private Queue<Action> addBoidsCallBack = new Queue<Action>();
 
         #region compute shader
-
-        [SerializeField] private int partitionAmount;
+        [Range(5 , 1000)]
+        [SerializeField] private int partitionAmount = 1000;
         [SerializeField] private bool useGPU;
-        [SerializeField] private ComputeShader CalculateFlockingComputeShader;
+        [SerializeField] private ComputeShader ComputeShaderFlocking;
 
         //compute buffers
         private ComputeBuffer ComputeBufferCurrentBoid;
@@ -51,20 +53,20 @@ namespace experimenting2
 
         void Reset()
         {
-            ClearJobSystemMemory();
+            ClearJobSystemMemory(true);
             flocks = new List<Flock>() { new Flock() };
         }
 
         private void OnDestroy()
         {
-            ClearJobSystemMemory();
+            ClearJobSystemMemory(true);
             flocks = new List<Flock>() { new Flock() };
 
         }
 
         private void OnDisable()
         {
-            ClearJobSystemMemory();
+            ClearJobSystemMemory(true);
             flocks = new List<Flock>() { new Flock() };
         }
 
@@ -188,23 +190,51 @@ namespace experimenting2
             {
                 if (useGPU)
                 {
-                   
+                    if(useFlocking)
+                    {
+                        ClearJobSystemMemory();
+                        //ClearComputeBuffer();
+                        AddBoidsFromCallback();
+                        CreateObstacleComputeBuffer();
+                        CreatePredatorComputeBuffer();
+                        foreach (Flock flock in flocks)
+                        {//create all the boids for the current flock
+                            CreateAllBoidComputerBuffer(flock);
+                            List<MovementObject> listOfPartitionBoids = new List<MovementObject>();
+                            for(int i = 0; i < flock.nativeMovementObjects.Length; i++)
+                            {
+                                listOfPartitionBoids.Add(flock.nativeMovementObjects[i]);
 
-                    ClearJobSystemMemory();
-                    ClearComputeBuffer();
+                                if(i % partitionAmount - 1 == 0 || i == flock.nativeMovementObjects.Length - 1)
+                                {//start the compute shader
+                                    ComputeBufferCurrentBoid = new ComputeBuffer(listOfPartitionBoids.Count, MovementObject.AmountOfData());
+                                    ComputeBufferCurrentBoid.SetData(listOfPartitionBoids.ToArray());
+                                    int kernel = StartComputeShader(flock);
+                                    ComputeShaderFlocking.Dispatch(kernel, listOfPartitionBoids.Count, 1, 1);
+                                
+                                    //yield return null; //wait for next frame to gather the data
+                                    MovementObject[] outputContainer = new MovementObject[listOfPartitionBoids.Count];
+                                    ComputeBufferCurrentBoid.GetData(outputContainer);
+                                    foreach (var newData in outputContainer)
+                                    {
+                                        flock.nativeMovementObjects[(int)newData.id] = newData;
+                                    }
 
-                    CreateObstacleComputeBuffer();
-                    CreatePredatorComputeBuffer();
+                                    //release the currentBoid compute buffer to be used again
+                                    ComputeBufferCurrentBoid.Release();
+                                    listOfPartitionBoids.Clear(); //get ready for the next boids
+                                }
+                            }
+                            //loop through all the boids
+                            ComputeBufferAllBoid.Release();
+                        }//calculate all the new target direction and position first
+                        //now remove all the memory from the buffer
+                        ClearComputeBuffer();
+                    }
 
-                    foreach(Flock flock in flocks)
-                    {//create all the boids for the current flock
-                        CreateAllBoidComputerBuffer(flock);
-                        StartBoidMovement();
-
-                        //loop through all the boids
-
-                    }//calculate all the new target direction and position first
-
+                    StartBoidMovement();
+                    yield return null;
+                    RecieveBoidMovement();
                 }
                 else
                 {
@@ -236,7 +266,7 @@ namespace experimenting2
         /// <summary>
         /// This is to clear all the memory for all the native array and list that exist in the project.
         /// </summary>
-        private void ClearJobSystemMemory()
+        private void ClearJobSystemMemory(bool clearAllBoids = false)
         {
             //release memory so that it can be used for the next section
             if (nativeContainerObstacles.IsCreated) nativeContainerObstacles.Dispose();
@@ -245,6 +275,12 @@ namespace experimenting2
             {
                 if (flock.nativeTransformAccessArray.isCreated) flock.nativeTransformAccessArray.Dispose();
                 if (flock.NativeOutputMovementObjects.IsCreated) flock.NativeOutputMovementObjects.Dispose();
+
+                if(clearAllBoids)
+                {
+                    if (flock.nativeMovementObjects.IsCreated) flock.nativeMovementObjects.Dispose();
+
+                }
             }
         }
 
@@ -389,7 +425,7 @@ namespace experimenting2
 
         private void ClearComputeBuffer()
         {
-            ComputeBufferCurrentBoid.Dispose();
+            //ComputeBufferCurrentBoid.Dispose(); //it has already been cleared
             ComputeBufferAllBoid.Dispose();
             ComputeBufferObstacles.Dispose();
             ComputeBufferPredatorBoid.Dispose();
@@ -426,8 +462,13 @@ namespace experimenting2
 
         private void CreateAllBoidComputerBuffer(Flock flock)
         {
-            ComputeBufferAllBoid = new ComputeBuffer(flock.nativeMovementObjects.Count(), MovementObject.AmountOfData());
-            ComputeBufferAllBoid.SetData(flock.nativeMovementObjects.ToArray());
+            ComputeBufferAllBoid = new ComputeBuffer(flock.nativeMovementObjects.Length, MovementObject.AmountOfData());
+            List<MovementObject> list = new List<MovementObject>();
+            for(int i = 0; i < flock.nativeMovementObjects.Length; i++) {
+                list.Add(flock.nativeMovementObjects[i]);
+            }
+
+            ComputeBufferAllBoid.SetData(list.ToArray());
         }
 
         private void StartBoidMovement()
@@ -455,6 +496,53 @@ namespace experimenting2
                 UpdateBoidsData(flock);
             }
         }
+
+        private int StartComputeShader(Flock flock)
+        {
+            int kernelIndex = ComputeShaderFlocking.FindKernel("FlockingComputeShader");
+
+            ComputeShaderFlocking.SetBool("useCohesionRule", flock.rules.useCohesionRule);
+            ComputeShaderFlocking.SetBool("useAlignmentRule", flock.rules.useAlignmentRule);
+            ComputeShaderFlocking.SetBool("useSeparationRule", flock.rules.useSeparationRule);
+            ComputeShaderFlocking.SetBool("useRandomRule", flock.rules.useRandomRule);
+            ComputeShaderFlocking.SetBool("useAvoidObstaclesRule", flock.rules.useAvoidObstaclesRule);
+            ComputeShaderFlocking.SetBool("useFleeOnSightEnemyRule", flock.rules.useFleeOnSightEnemyRule);
+            ComputeShaderFlocking.SetBool("isPredator", flock.rules.isPredator);
+            ComputeShaderFlocking.SetBool("canBounce", flock.rules.bounceWall);
+
+            //setting the float
+            ComputeShaderFlocking.SetFloat("WEIGHT_COHESION", flock.rules.WEIGHT_COHESION);
+            ComputeShaderFlocking.SetFloat("WEIGHT_SEPERATION", flock.rules.WEIGHT_SEPARATION);
+            ComputeShaderFlocking.SetFloat("WEIGHT_ALIGNMENT", flock.rules.WEIGHT_ALIGNMENT);
+            ComputeShaderFlocking.SetFloat("WEIGHT_RANDOM", flock.rules.WEIGHT_RANDOM);
+            ComputeShaderFlocking.SetFloat("WEIGHT_AVOID_OBSTACLES", flock.rules.WEIGHT_AVOID_OBSTACLES);
+            ComputeShaderFlocking.SetFloat("WEIGHT_FLEE_ENEMY_ON_SIGHT", flock.rules.WEIGHT_FLEE_ENEMY_ON_SIGHT);
+
+
+            ComputeShaderFlocking.SetFloat("maxSpeed", flock.rules.maxSpeed);
+            ComputeShaderFlocking.SetFloat("visibility", flock.rules.visibility);
+            ComputeShaderFlocking.SetFloat("separationDistance", flock.rules.separationDistance);
+            ComputeShaderFlocking.SetFloat("enemySeparationDistance", flock.rules.enemySeparationDistance);
+
+            ComputeShaderFlocking.SetFloat("maxBoundX", Bounds.bounds.max.x);
+            ComputeShaderFlocking.SetFloat("maxBoundY", Bounds.bounds.max.y);
+            ComputeShaderFlocking.SetFloat("minBoundX", Bounds.bounds.min.x);
+            ComputeShaderFlocking.SetFloat("minBoundY", Bounds.bounds.min.y);
+            ComputeShaderFlocking.SetFloat("padding", 0);
+
+            ComputeShaderFlocking.SetInt("sizeOfObstacles", ComputeBufferObstacles.count);
+            ComputeShaderFlocking.SetInt("sizeOfFlock", ComputeBufferAllBoid.count);
+            ComputeShaderFlocking.SetInt("sizeOfPredatorBoids", ComputeBufferPredatorBoid.count);
+
+            ComputeShaderFlocking.SetBuffer(kernelIndex, "otherBoids", ComputeBufferAllBoid);
+            ComputeShaderFlocking.SetBuffer(kernelIndex, "currentBatch", ComputeBufferCurrentBoid);
+            ComputeShaderFlocking.SetBuffer(kernelIndex, "predatorBoids", ComputeBufferPredatorBoid);
+            ComputeShaderFlocking.SetBuffer(kernelIndex, "obstacles", ComputeBufferObstacles);
+
+            return kernelIndex;
+        }
+
+        //private void 
 
         #endregion
 

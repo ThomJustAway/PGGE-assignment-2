@@ -1,5 +1,5 @@
 // Each #kernel tells which function to compile; you can have many kernels
-#pragma kernel CSMain
+#pragma kernel FlockingComputeShader
 
 struct MovementObject 
 {
@@ -28,12 +28,11 @@ bool canBounce;
 
 
 float WEIGHT_COHESION;
-float WEIGHT_SEPERATION;
+float WEIGHT_SEPARATION;
 float WEIGHT_ALIGNMENT;
 float WEIGHT_RANDOM;
 float WEIGHT_AVOID_OBSTACLES;
 float WEIGHT_FLEE_ENEMY_ON_SIGHT;
-float WEIGHT_SEPARATION;
 
 float maxSpeed;
 float visibility;
@@ -45,9 +44,6 @@ float maxBoundY;
 float minBoundX;
 float minBoundY;
 float padding;
-
-float rotationSpeed;
-float deltaTime;
 
 uint sizeOfObstacles;
 uint sizeOfFlock;
@@ -343,7 +339,7 @@ MovementObject HandleBoundries(MovementObject boid)
 
 
 [numthreads(1000, 1, 1)]
-void CSMain (uint3 id : SV_DispatchThreadID)
+void FlockingComputeShader (uint3 id : SV_DispatchThreadID)
 {
 	MovementObject curr = StartCalculatingFlockingRules(id.x);
     curr = DoRandomMovement(curr); //apply random movement to the boid

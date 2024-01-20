@@ -28,7 +28,7 @@ namespace experimenting2
 
         public static int AmountOfData()
         {
-            return (sizeof(uint) + sizeof(float) * 2 + sizeof(float) * 6);
+            return (sizeof(uint) + sizeof(float) * 8);
         }
     };
 
@@ -86,7 +86,7 @@ namespace experimenting2
 
         public static int AmountOfData()
         {
-            return (sizeof(uint) + sizeof(float) * 2 + sizeof(float) * 6);
+            return (sizeof(float) * 5);
         }
     }
 
