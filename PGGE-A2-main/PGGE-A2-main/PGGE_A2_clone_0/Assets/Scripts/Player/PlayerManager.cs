@@ -6,6 +6,8 @@ using UnityEngine.SceneManagement;
 
 public class PlayerManager : MonoBehaviourPunCallbacks 
 {
+    public static PlayerManager instance; //make it into a singleton for use in the menu
+
     public string mPlayerPrefabName;
     public PlayerSpawnPoints mSpawnPoints;
 
@@ -13,6 +15,19 @@ public class PlayerManager : MonoBehaviourPunCallbacks
     public GameObject mPlayerGameObject;
     [HideInInspector]
     private ThirdPersonCamera mThirdPersonCamera;
+
+    private void Awake()
+    {
+        if (instance == null)
+        {
+            instance = this;
+        }
+        else
+        {
+            print("error with player manager");
+            Destroy(gameObject);
+        }
+    }
 
     private void Start()
     {
@@ -32,18 +47,26 @@ public class PlayerManager : MonoBehaviourPunCallbacks
 
     public void LeaveRoom()
     {
-        Debug.LogFormat("LeaveRoom");
-        PhotonNetwork.LeaveRoom();
+        StartCoroutine(OnLeave());
+    }
+
+    public void RestartLevel()
+    {
+        Transform randomSpawnTransform = mSpawnPoints.GetSpawnPoint();
+        mPlayerGameObject.transform.position = randomSpawnTransform.position;
+        mPlayerGameObject.transform.rotation = randomSpawnTransform.rotation;
+        //make the player spawn in different areas
     }
 
     public override void OnLeftRoom()
     {
-        //Debug.LogFormat("OnLeftRoom()");
         SceneManager.LoadScene("Menu");
     }
 
-    #region IPunObservable implementation
-
-
-    #endregion
+    IEnumerator OnLeave()
+    {
+        GameApp.Instance.soundPlayer.PlayAudio(SFXClip.buttonClick2);
+        yield return new WaitForSeconds(1.5f);
+        PhotonNetwork.LeaveRoom();
+    }
 }

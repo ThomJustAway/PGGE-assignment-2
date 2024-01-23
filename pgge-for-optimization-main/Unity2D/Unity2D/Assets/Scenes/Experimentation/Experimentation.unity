@@ -2508,7 +2508,7 @@ MonoBehaviour:
       isPredator: 1
     transforms: []
   partitionAmount: 1000
-  useGPU: 1
+  useGPU: 0
   ComputeShaderFlocking: {fileID: 7200000, guid: 918afbfd07e30284ab12abfd999e61b9, type: 3}
 --- !u!4 &2051155771
 Transform:

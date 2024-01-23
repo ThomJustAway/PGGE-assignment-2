@@ -18,24 +18,12 @@ namespace PGGE.Player
         {
             base.Update();
 
-            // For Student ---------------------------------------------------//
-            // Implement the logic of player movement. 
-            //----------------------------------------------------------------//
-            // Hint:
-            //----------------------------------------------------------------//
-            // You should remember that the logic for movement
-            // has already been implemented in PlayerMovement.cs.
-            // So, how do we make use of that?
-            // We certainly do not want to copy and paste the movement 
-            // code from PlayerMovement to here.
-            // Think of a way to call the Move method. 
-            //
-            // You should also
-            // check if fire buttons are pressed so that 
-            // you can transit to ATTACK state.
-
             mPlayer.Move();
+            DecidedNextState();
+        }
 
+        private void DecidedNextState()
+        {
             for (int i = 0; i < mPlayer.mAttackButtons.Length; ++i)
             {
                 if (mPlayer.mAttackButtons[i])
@@ -46,7 +34,7 @@ namespace PGGE.Player
                       (PlayerState_Multiplayer_ATTACK)mFsm.GetState(
                                 (int)PlayerStateType.ATTACK);
 
-                        attack.AttackID = i;
+                        attack.AttackID = i; //make sure the player is shooting based on the attack button
                         mPlayer.mFsm.SetCurrentState(
                             (int)PlayerStateType.ATTACK);
                     }

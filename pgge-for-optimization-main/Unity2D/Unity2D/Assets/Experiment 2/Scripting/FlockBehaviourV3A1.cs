@@ -192,6 +192,7 @@ namespace experimenting2
                 {
                     if(useFlocking)
                     {
+                        //currently this function runs quite slow so dont use this
                         ClearJobSystemMemory();
                         //ClearComputeBuffer();
                         AddBoidsFromCallback();
@@ -214,6 +215,9 @@ namespace experimenting2
                                 
                                     //yield return null; //wait for next frame to gather the data
                                     MovementObject[] outputContainer = new MovementObject[listOfPartitionBoids.Count];
+
+                                    yield return null;
+
                                     ComputeBufferCurrentBoid.GetData(outputContainer);
                                     foreach (var newData in outputContainer)
                                     {
@@ -475,7 +479,12 @@ namespace experimenting2
         {
             foreach (Flock flock in flocks)
             {
-                flock.NativeOutputMovementObjects = new NativeArray<MovementObject>(flock.nativeMovementObjects.ToArray(), Allocator.TempJob);
+                flock.NativeOutputMovementObjects = new NativeArray<MovementObject>(flock.nativeMovementObjects.Length, Allocator.TempJob);
+                for(int i = 0; i < flock.nativeMovementObjects.Length; i++)
+                {
+                    flock.NativeOutputMovementObjects[i] = flock.nativeMovementObjects[i];
+                }//make the 
+
                 MovingMovementObject moveJob = new MovingMovementObject()
                 {
                     boidsData = flock.NativeOutputMovementObjects,

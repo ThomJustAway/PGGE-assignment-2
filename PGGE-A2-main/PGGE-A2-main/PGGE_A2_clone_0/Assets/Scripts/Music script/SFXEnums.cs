@@ -2,5 +2,9 @@
 {
     Firing,
     Reloading,
-    buttonClick
+    buttonClick,
+    buttonClick2,
+    buttonClick3,
+    HoverSFX,
+    HoverSFX2
 }

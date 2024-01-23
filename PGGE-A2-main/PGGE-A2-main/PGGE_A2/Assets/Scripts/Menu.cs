@@ -8,25 +8,30 @@ public class Menu : MonoBehaviour
 
     public void OnClickSinglePlayer()
     {
+        var clipToPlay = SFXClip.buttonClick;
+
         //Debug.Log("Loading singleplayer game");
-        StartCoroutine(ButtonClick("SinglePlayer"));
+        StartCoroutine(ButtonClick("SinglePlayer", clipToPlay));
     }
 
     public void OnClickMultiPlayer()
     {
+        var clipToPlay = SFXClip.buttonClick;
+
         //Debug.Log("Loading multiplayer game");
-        StartCoroutine( ButtonClick("Multiplayer_Launcher"));
+        StartCoroutine( ButtonClick("Multiplayer_Launcher", clipToPlay));
     }
 
     public void OnClickReturn()
     {
-        StartCoroutine(ButtonClick("Menu"));
+        var clipToPlay = SFXClip.buttonClick2;
+        StartCoroutine(ButtonClick("Menu" , clipToPlay));
     }
 
-    IEnumerator ButtonClick(string sceneName)
+    IEnumerator ButtonClick(string sceneName , SFXClip clip)
     {
         print(sceneName);
-        GameApp.Instance.soundPlayer.PlayAudio(SFXClip.buttonClick);
+        GameApp.Instance.soundPlayer.PlayAudio(clip);
         yield return new WaitForSeconds(1.5f);
         SceneManager.LoadScene(sceneName);
     }
