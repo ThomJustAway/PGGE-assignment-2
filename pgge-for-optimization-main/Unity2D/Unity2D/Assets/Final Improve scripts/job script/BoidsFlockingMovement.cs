@@ -49,7 +49,8 @@ namespace experimenting2
         private MovementObject StartCalculatingFlockingRules(int i)
         {
             float3 alignmentDir = Vector3.zero;
-            float3 separationDir = Vector3.zero;
+            float3 separationDir = Vector3.zero; 
+            //set both allignment and seperation to zero as we haven't find the values yet
 
             float speed = 0.0f;
             float separationSpeed = 0.0f;
@@ -110,8 +111,9 @@ namespace experimenting2
                 //finding the average position that the flock is going
             }
             else
-            { //if it is equal to 0 then have some changes to the values because
-              //the boids can act abit weird
+            { 
+                //if it is equal to 0 then have some changes to the values because
+                //the boids can act predictable without it
                 float randx = random.NextFloat(-1f,1f);
                 float randy = random.NextFloat(-1f, 1f);
 
@@ -153,11 +155,10 @@ namespace experimenting2
         //for random movement
         private MovementObject DoRandomMovement(MovementObject boid)
         {
+            //if the random rule is not activated then ignore it
             if (!rules.useRandomRule) return boid;
 
-            //autonomousList[i].TargetDirection.Normalize();
             boid.targetDirection = Normalise(boid.targetDirection);
-            //float rand = Mathf.Lerp(-1f, 1f, boid.targetDirection.x);
             float rand = random.NextFloat(-1f, 1f);
             float angle = Mathf.Atan2(boid.targetDirection.y, boid.targetDirection.x);
 
@@ -193,16 +194,20 @@ namespace experimenting2
         {
             if (!rules.useAvoidObstaclesRule) return boid;
 
+            //loop through all the obstacles 
             for (int j = 0; j < obstacles.Length; ++j)
             {
+                
                 var currentObstacle = obstacles[j];
 
                 float dist = Magnitude(boid.position - currentObstacle.position);
 
                 if (dist < currentObstacle.AvoidanceRadius)
                 {
+                    //if the boid is in range of the obstacle avoidance raidus
                     float3 targetDirection = Normalise(boid.position - currentObstacle.position);
 
+                    //steer away from the boids and add it to the target directions.
                     boid.targetDirection += targetDirection * rules.WEIGHT_AVOID_OBSTACLES;
                     boid.targetDirection = Normalise(boid.targetDirection);
                 }
@@ -215,19 +220,18 @@ namespace experimenting2
             //ignore this rules if the boid dont have to flee predator or if the boid is a predator
             if(!rules.useFleeOnSightEnemyRule || rules.isPredator) return boid;
             
-            //do the calculation
+            //do the calculation for each existing predator and try and avoid them
             foreach(var predator in predatorBoids)
             {
+
                 var targetDirection = predator.position - boid.position;
                 var distanceFromEnemy = Magnitude(targetDirection); 
-                if (distanceFromEnemy < rules.enemySeparationDistance)
+
+                if (distanceFromEnemy < rules.enemySeparationDistance) //if the boid is near the predator, 
                 { //within range of the visible enemy
                     targetDirection = Normalise(targetDirection);
-                    //                boids[i].TargetDirection += targetDirection;
-                    //                boids[i].TargetDirection.Normalize();
-
-                    //                boids[i].TargetSpeed += dist * sepWeight;
-                    //                boids[i].TargetSpeed /= 2.0f;
+                    
+                    //avoid the direction to try and avoid the boid.
                     boid.targetDirection += targetDirection;
                     boid.targetDirection = Normalise(boid.targetDirection);
 
@@ -240,14 +244,17 @@ namespace experimenting2
         }
 
         #region handle Boundary
+        //Handle what the boid should do when it reaches a boundary
         private MovementObject HandleBoundries(MovementObject boid)
         {
             if (rules.bounceWall)
             {
+                //if near a wall, the boid will avoid the wall
                 return BounceBoid(boid);
             }
             else
             {
+                //if near a wall, the boid will be teleported to the opposite end of it
                 return TeleportBoid(boid);
             }
         }
@@ -284,7 +291,8 @@ namespace experimenting2
 
         private MovementObject BounceBoid(MovementObject curBoid)
         {
-            Vector3 pos = curBoid.position;
+            //cache the boid position for quick access
+            float3 pos = curBoid.position;
 
             curBoid.targetDirection = Normalise(curBoid.targetDirection);
 

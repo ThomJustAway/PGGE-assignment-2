@@ -6,7 +6,7 @@ using UnityEngine.SceneManagement;
 
 public class PlayerManager : MonoBehaviourPunCallbacks 
 {
-    public static PlayerManager instance; //make it into a singleton for use in the menu
+    public static PlayerManager instance; //make it into a singleton for use in the menu and player
 
     public string mPlayerPrefabName;
     public PlayerSpawnPoints mSpawnPoints;
@@ -35,8 +35,9 @@ public class PlayerManager : MonoBehaviourPunCallbacks
         mPlayerGameObject = PhotonNetwork.Instantiate(mPlayerPrefabName,
             randomSpawnTransform.position,
             randomSpawnTransform.rotation,
-            0);
+            0); //get random position and rotation for the player to start out with.
 
+        //add the camera to track the palyer.
         mThirdPersonCamera = Camera.main.gameObject.AddComponent<ThirdPersonCamera>();
 
         //mPlayerGameObject.GetComponent<PlayerMovement>().mFollowCameraForward = false;
@@ -44,7 +45,8 @@ public class PlayerManager : MonoBehaviourPunCallbacks
         mThirdPersonCamera.mDamping = 20.0f;
         mThirdPersonCamera.mCameraType = CameraType.Follow_Track_Pos_Rot;
     }
-
+    
+    //this is called for button to leave the multiplayer room.
     public void LeaveRoom()
     {
         StartCoroutine(OnLeave());
@@ -63,7 +65,7 @@ public class PlayerManager : MonoBehaviourPunCallbacks
         SceneManager.LoadScene("Menu");
     }
 
-    IEnumerator OnLeave()
+    private IEnumerator OnLeave()
     {
         GameApp.Instance.soundPlayer.PlayAudio(SFXClip.buttonClick2);
         yield return new WaitForSeconds(1.5f);

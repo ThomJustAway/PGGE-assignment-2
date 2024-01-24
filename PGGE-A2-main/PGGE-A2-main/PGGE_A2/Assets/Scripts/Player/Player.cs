@@ -5,6 +5,7 @@ using PGGE.Patterns;
 
 namespace PGGE.Player
 {
+    //this class is used for the player in singleplayer this is very similar to the multiplayer script
     public class Player : MonoBehaviour
     {
         [HideInInspector]
@@ -12,6 +13,9 @@ namespace PGGE.Player
         public Animator mAnimator;
         public PlayerMovement mPlayerMovement;
 
+
+        #region shooting related
+        [HideInInspector]
         // This is the maximum number of bullets that the player 
         // needs to fire before reloading.
         public int mMaxAmunitionBeforeReload = 40;
@@ -25,9 +29,7 @@ namespace PGGE.Player
         [HideInInspector]
         public int mBulletsInMagazine = 40;
 
-        [HideInInspector]
         public bool[] mAttackButtons = new bool[3];
-
         public Transform mGunTransform;
         public LayerMask mPlayerMask;
         public Canvas mCanvas;
@@ -38,7 +40,7 @@ namespace PGGE.Player
 
         public int[] RoundsPerSecond = new int[3];
         bool[] mFiring = new bool[3];
-
+        #endregion
 
         // Start is called before the first frame update
         void Start()

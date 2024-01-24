@@ -40,6 +40,7 @@ namespace experimenting2
         //native movementObject is used to store all the information about the boids for the job system to use
         [HideInInspector] public NativeList<MovementObject> nativeMovementObjects;
 
+        [HideInInspector] public NativeList<MovementObject> NativeMovementObjectOutputList;
         public Flock()
         {
         }

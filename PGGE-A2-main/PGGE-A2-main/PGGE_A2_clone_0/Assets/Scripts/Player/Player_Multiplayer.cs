@@ -7,6 +7,9 @@ using System;
 
 namespace PGGE.Player
 {
+    //This script is used for the player in multiplayer mode. 
+    //Implement the IDamageable so that the player can damage one another
+    //Implement the IPunObservable to sync data between players in the other services
     public class Player_Multiplayer : MonoBehaviour , IDamageable , IPunObservable
     {
         //for networking
@@ -88,9 +91,9 @@ namespace PGGE.Player
 
         void Update()
         {
-            if (isDead) return; //if the actual player is dead, then dont do anything?
+            if (isDead) return; //if the actual player is dead, then dont do anything.
             
-            if (!mPhotonView.IsMine) //if it is not the client one, then dont move it
+            if (!mPhotonView.IsMine) //if it is not the client one, then dont move it but do data reading.
             {//do data reading here
                 if(firingCallback.Count > 0) //if there is bullets fired from the actual player then show that bullet in the other servers
                 {

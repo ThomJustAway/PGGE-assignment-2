@@ -89,6 +89,7 @@ namespace experimenting2
             AvoidanceRadiusMultFactor = 1.5f;
         }
 
+        //ignore this as this is to calculate the amount of data used for compute shader
         public static int AmountOfData()
         {
             return (sizeof(float) * 5);
