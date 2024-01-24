@@ -344,6 +344,8 @@ namespace experimenting2
         /// <param name="flock"></param>
         private void StartingJob(Flock flock)
         {
+            //flock.NativeMovementObjectOutputList = new NativeList<MovementObject>()
+
             //fill up the native array with the obstacles for used
             flock.NativeOutputMovementObjects = new NativeArray<MovementObject>(flock.nativeMovementObjects.Capacity, Allocator.TempJob);
 
