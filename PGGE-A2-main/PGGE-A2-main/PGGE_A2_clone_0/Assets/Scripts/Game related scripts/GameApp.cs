@@ -7,12 +7,13 @@ using UnityEngine.SceneManagement;
 public class GameApp : Singleton<GameApp>
 {
     private bool mPause;
-    public SoundPlayer soundPlayer { get; private set; }
+    public SoundPlayer soundPlayer { get; private set; } //this is where the sound player is kept
 
     void Start()
     {
         soundPlayer = GetComponent<SoundPlayer>();
         mPause = false;
+        //wil shift the the game from preload to menu so that the menu has all the singleton required to run the game
         SceneManager.LoadScene("Menu");
     }
 

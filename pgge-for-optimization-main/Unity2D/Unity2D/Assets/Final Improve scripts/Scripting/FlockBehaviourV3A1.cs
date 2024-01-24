@@ -37,18 +37,19 @@ namespace experimenting2
         public NativeList<MovementObject> nativeContainerPredatorBoids;
         private Queue<Action> addBoidsCallBack = new Queue<Action>();
 
+        //ignore this as this is for experiementing
         #region compute shader
+        [Header("ignore this, it is legacy code")]
         [Range(5 , 1000)]
-        [SerializeField] private int partitionAmount = 1000;
         [SerializeField] private bool useGPU;
         [SerializeField] private ComputeShader ComputeShaderFlocking;
+        [SerializeField] private int partitionAmount = 1000; //how many 
 
         //compute buffers
         private ComputeBuffer ComputeBufferCurrentBoid;
         private ComputeBuffer ComputeBufferAllBoid;
         private ComputeBuffer ComputeBufferPredatorBoid;
         private ComputeBuffer ComputeBufferObstacles;
-
         #endregion
 
         void Reset()
@@ -79,13 +80,13 @@ namespace experimenting2
 
         void Update()
         {
+            //handle the adding boid output 
             HandleInputs();
-            //Rule_CrossBorder();
-            //Rule_CrossBorder_Obstacles();
         }
 
         #region starting functions
 
+        //this is to randomly place the obstacles in different location for the boids to avoid
         private void SetObstacles()
         {
             // Randomize obstacles placement.
@@ -128,6 +129,7 @@ namespace experimenting2
         }//they are the groups of boid (flock)
 
         #endregion
+
         #region boids related
         //add the basic boids into the scene
         void AddBoids()
@@ -172,8 +174,7 @@ namespace experimenting2
             }
 
             if (Input.GetKeyDown(KeyCode.Space))
-            {
-                //AddBoids();
+            {//if the play press the space bar button, add the boids in a queue for callback once the job is done.
                 addBoidsCallBack.Enqueue(AddBoids);
             }
         }
@@ -188,13 +189,13 @@ namespace experimenting2
         {
             while (true)
             {
+                //You can see what happen if I try using Compute shader for this
+                //not recommended since due to the GPU bottleneck and it performant worst.
                 if (useGPU)
                 {
                     if(useFlocking)
                     {
-                        //currently this function runs quite slow so dont use this
                         ClearJobSystemMemory();
-                        //ClearComputeBuffer();
                         AddBoidsFromCallback();
                         CreateObstacleComputeBuffer();
                         CreatePredatorComputeBuffer();
@@ -236,21 +237,24 @@ namespace experimenting2
                         ClearComputeBuffer();
                     }
 
+                    //start moving the boids
                     StartBoidMovement();
                     yield return null;
-                    RecieveBoidMovement();
+                    RecieveBoidMovement(); //finish the boid movement and move on to the next frame
                 }
                 else
                 {
                     //do all the job system work here!
                     if (useFlocking)
                     {
-                        ClearJobSystemMemory();
-                        AddBoidsFromCallback();
-                        SettingUpPredatorBoids();
-                        SettingUpObstacle();
+                        ClearJobSystemMemory(); //make sure the memory is ready so that it can be used for job
+                        AddBoidsFromCallback(); //To make sure to not affec the boid list, use a callback to add the boids
+                        SettingUpPredatorBoids(); //set up the predator native array for job to use
+                        SettingUpObstacle(); //set up the obstacle native array for job to use.
+
                         foreach (Flock flock in flocks)
                         {
+                            //run indiviual jobs for each flock to calculate and move the boids
                             StartingJob(flock);
                         }
                     }
@@ -259,8 +263,9 @@ namespace experimenting2
 
                     foreach(var flock  in flocks)
                     {
+                        //complete the job to retrieve the data
                         flock.job.Complete();
-                        UpdateBoidsData(flock);
+                        UpdateBoidsData(flock); //update the boids 
                     }
                 }
             }
@@ -277,6 +282,7 @@ namespace experimenting2
             if(nativeContainerPredatorBoids.IsCreated) nativeContainerPredatorBoids.Dispose();
             foreach(var flock in flocks)
             {
+                //clear all the native transform access and native output for further usage
                 if (flock.nativeTransformAccessArray.isCreated) flock.nativeTransformAccessArray.Dispose();
                 if (flock.NativeOutputMovementObjects.IsCreated) flock.NativeOutputMovementObjects.Dispose();
 
@@ -295,13 +301,13 @@ namespace experimenting2
 
         private void SettingUpObstacle()
         {
+            //set up the native array so that it can be populated with the obstacles
             nativeContainerObstacles = new NativeArray<BoidsObstacle>(Obstacles.Length, Allocator.TempJob);
 
             for (int i = 0; i < mObstacles.Count; i++)
             {
+                //populate the native container
                 nativeContainerObstacles[i] = mObstacles[i].obstacle;
-
-                var currentObstacle = mObstacles[i].obstacle;
             }
         }
 
@@ -311,34 +317,41 @@ namespace experimenting2
         /// </summary>
         /// <param name="UpdateBoidsData"></param>
         /// 
+
         private void UpdateBoidsData(Flock flock)
-        {
+        {//the function is still quite slow so change this to be used in job
             for (int i = 0; i < flock.transforms.Count; i++)
             {
                 //replace the new result back to the list
-
                 var boidResult = flock.NativeOutputMovementObjects[i];
                 boidResult.position = flock.transforms[i].position;
                 flock.nativeMovementObjects[i] = boidResult;
                 //just update the position of the boid
             }
+
         }
 
+        ///// <summary>
+        ///// This is to initialize the job so the boids can start moving
+        ///// </summary>
+        ///// <param name="StartingJob"></param>
+
+
+
         /// <summary>
-        /// This is to initialize the job so the boids can start moving
+        /// This is to start the job for calculating and moving of the boids
         /// </summary>
-        /// <param name="StartingJob"></param>
-
-        
-
+        /// <param name="flock"></param>
         private void StartingJob(Flock flock)
         {
             //fill up the native array with the obstacles for used
             flock.NativeOutputMovementObjects = new NativeArray<MovementObject>(flock.nativeMovementObjects.Capacity, Allocator.TempJob);
 
+            //create the random element so that the boids can have randomness in their movement
             uint randomNumber = 5;
             var random = new Unity.Mathematics.Random(randomNumber);
 
+            //this is to calculate the target direction and speed of the boids so that it can be used in the moving of the boids
             BoidsFlockingMovement calculatingFlockingMovementJob = new BoidsFlockingMovement()
             {
                 AllTheBoids = flock.nativeMovementObjects,
@@ -350,6 +363,7 @@ namespace experimenting2
                 random = random,
             };
 
+            //this is to move the boids once the calculating is done.
             MovingMovementObject movingBoidJob = new MovingMovementObject()
             {
                 boidsData = flock.NativeOutputMovementObjects,
@@ -357,15 +371,17 @@ namespace experimenting2
                 rulesData = flock.rules,
             };
 
+            //create the transform access array so that the boid transform can be access in the job system
             flock.nativeTransformAccessArray = new TransformAccessArray(flock.transforms.ToArray());
 
             JobHandle CalculatingJob = calculatingFlockingMovementJob.Schedule(flock.transforms.Count, 1);
-            JobHandle movingJob = movingBoidJob.Schedule(flock.nativeTransformAccessArray, CalculatingJob);
+            //schedule the calculating job once the calculating job is done.
+            JobHandle movingJob = movingBoidJob.Schedule(flock.nativeTransformAccessArray, CalculatingJob); 
 
             flock.job = movingJob;
-            //dont need it anymore now so just dispose it
         }
 
+        //this is an old starting job that tries to combine all the job together into a single function.
         private void StartingJob2(Flock flock)
         {
             flock.NativeOutputMovementObjects = new NativeArray<MovementObject>(flock.nativeMovementObjects.Capacity, Allocator.TempJob);
@@ -396,11 +412,12 @@ namespace experimenting2
 
         private void SettingUpPredatorBoids()
         {
+            //create a native list so that it can be used to store the predator boids
             nativeContainerPredatorBoids = new NativeList<MovementObject>(Allocator.TempJob);
             foreach(var flock in flocks)
             {
                 if (flock.rules.isPredator)
-                {
+                {//find all the boid that are predator all the boid from that flock
                     foreach(var boid in flock.nativeMovementObjects)
                     {
                         nativeContainerPredatorBoids.Add(boid);
@@ -418,6 +435,7 @@ namespace experimenting2
 
         private void AddBoidsFromCallback()
         {
+            //When there is no job, make sure to dequeue the callback to add the boids
             if(addBoidsCallBack.Count > 0)
             {
                 addBoidsCallBack.Dequeue().Invoke();
@@ -425,6 +443,7 @@ namespace experimenting2
         }
         #endregion
 
+        //wont bother commenting this since it is legacy
         #region Compute shader
 
         private void ClearComputeBuffer()
@@ -499,11 +518,11 @@ namespace experimenting2
 
         private void RecieveBoidMovement()
         {
-            foreach(Flock flock in flocks)
-            {
-                flock.job.Complete();
-                UpdateBoidsData(flock);
-            }
+            //foreach (Flock flock in flocks)
+            //{
+            //    flock.job.Complete();
+            //    UpdateBoidsData(flock);
+            //}
         }
 
         private int StartComputeShader(Flock flock)
@@ -557,6 +576,7 @@ namespace experimenting2
 
         #endregion
 
+        //this is legacy as well as to test the mapping
         #region Mapping
 
 
@@ -634,6 +654,7 @@ namespace experimenting2
 
         #endregion
 
+        //this are some calculation method because float3 / float 2 dont have method to calculate them
         #region extra methods
 
         //create random speed for the boids
@@ -654,9 +675,6 @@ namespace experimenting2
  
 
         #endregion
-
-
-
     }
 
 

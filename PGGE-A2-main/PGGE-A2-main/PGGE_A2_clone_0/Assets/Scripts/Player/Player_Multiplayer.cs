@@ -48,35 +48,32 @@ namespace PGGE.Player
         private bool firedBullet;
         #endregion
 
-        
         public LayerMask mPlayerMask;
         public Canvas mCanvas;
         public RectTransform mCrossHair;
-        public RectTransform HealthUI;
 
         #region health
-        private float maxHealthUIWidth;
-        private const float maxHealth = 100;
-        public float health = maxHealth;
-        private  bool isDead;
-        public GameObject DeathCanvas;
+        //this is for the Health and UI
+        public RectTransform HealthUI; //The Health bar. It will decrease if the player lost HP
+        private float maxHealthUIWidth; //This is to calculate the remaining health the player has left
+        private const float maxHealth = 100; //the max HP the player has
+        public float health = maxHealth; //this is the current hp of player
+        private  bool isDead; // This is triggered if the player is dead
+        public GameObject DeathCanvas; //this is the canvas that the player will see if they are dead.
         #endregion
 
-        // Start is called before the first frame update
         void Start()
         {
             maxHealthUIWidth = HealthUI.rect.width; //make sure that the UI shows that it is max health
             isDead = false; //have a boolen to keep track whether the player is dead or not.
             mPhotonView = GetComponent<PhotonView>();
-            PopulatingFSM();
+            PopulatingFSM(); 
 
-            //this is to make sure the crosshair dont intersect with the other players.
             if (!mPhotonView.IsMine)
-            {
-                mCanvas.gameObject.SetActive(false);
-                //for networking side
-                firingCallback = new Queue<Action>();
-                firedBullet = false;
+            {//if this is the player from the other servers
+                mCanvas.gameObject.SetActive(false); //this is to make sure the crosshair dont intersect with the other players.
+                firingCallback = new Queue<Action>(); //Enable the callback queue so that it can give the illusion of the other player is firing the bullet
+                firedBullet = false; //make sure it is false so as the other player dont fire the bullet.
             }
         }
 
@@ -91,12 +88,13 @@ namespace PGGE.Player
 
         void Update()
         {
-            //if it is not the client one, then dont move it
-            if (isDead) return;
-            if (!mPhotonView.IsMine )
+            if (isDead) return; //if the actual player is dead, then dont do anything?
+            
+            if (!mPhotonView.IsMine) //if it is not the client one, then dont move it
             {//do data reading here
-                if(firingCallback.Count > 0)
+                if(firingCallback.Count > 0) //if there is bullets fired from the actual player then show that bullet in the other servers
                 {
+                    //since the shooting bullet function is in the queue, just dequeue it from the queue and invoke it.
                     var callback = firingCallback.Dequeue();
                     callback.Invoke();
                 }
@@ -230,6 +228,9 @@ namespace PGGE.Player
         public void FireBullet()
         {
             if (mBulletPrefab == null) return;
+
+            //activate the fired bullet boolen so that the OnPhotonSerializeView will know
+            //that the actual player fired the bullet.
             firedBullet = true;
             //find the direction of where the bullet should fire
             Vector3 dir = -mGunTransform.right.normalized;
@@ -274,15 +275,24 @@ namespace PGGE.Player
             UpdateHealthUI();
         }
 
-        //show dead UI here
+        //Once the player has not enough HP, it will trigger the death function to start it's death
         private void StartDeath()
         {
+            //show the death animation here
             mAnimator.SetTrigger("Die");
-            isDead = true;
-            DeathCanvas.SetActive(true);
+            if (mPhotonView.IsMine)
+            {
+                //this is important as to not make sure that only the client is dead bool is true as
+                //when the player restart the game, the bool of the client would be false but the 
+                // other servers "Player" have the isDead bool true. This would cause very weird
+                //behaviours that we dont want.
+                isDead = true;
+                DeathCanvas.SetActive(true);
+            }
         }
         #endregion
 
+        #region buttons for end canvas
         //If player wants to restart
         public void RestartGame()
         {
@@ -293,38 +303,50 @@ namespace PGGE.Player
             UpdateHealthUI();
             PlayerManager.instance.RestartLevel();
         }
-
+        //if the player press the quit game button
         public void QuitGame()
         {
+            //if Player wants to leave the game, they will be transported back.
             PlayerManager.instance.LeaveRoom();
         }
+        #endregion
 
+        //this is to reflect the amount of HP the player has before dying.
         private void UpdateHealthUI()
         {
-            var normaliseValue = health / maxHealth;
-            var currentUIHealth = Mathf.Lerp(0, maxHealthUIWidth , normaliseValue);
+            var normaliseValue = health / maxHealth; //finding the percentage of health the player has.
+            var currentUIHealth = Mathf.Lerp(0, maxHealthUIWidth , normaliseValue); 
+            //this is to find the percentage of health the UI as to show in order to see the changes.
+
             Vector2 sizeOfRect = HealthUI.sizeDelta;
             sizeOfRect.x = currentUIHealth;
             HealthUI.sizeDelta = sizeOfRect;
+            //show and display the health bar
+
         }
 
+        //this is to sync the player shooting so that the both players can see the bullets.
         public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
         {
             if (stream.IsWriting)
-            {
-                stream.SendNext(health);
+            {//if it is the client
+                stream.SendNext(health); //sync the health and bullet with the other client
                 stream.SendNext(firedBullet);
+
                 if (firedBullet)
                 {
+                    //once the stream has registered the bullet, reset to register the next bullet.
                     firedBullet = false;
                 }
             }
             else
-            {
-                health = (float) stream.ReceiveNext();
+            {//if it is on the other servers
+                health = (float) stream.ReceiveNext(); //sync the health from the actual player to the players in other servers
                 bool fired = (bool)stream.ReceiveNext();
-                if(fired)
+
+                if(fired) //if the actual player has fired, make sure to queue up a bullet to show the bullet that is fired
                 {
+                    //this is so that the bullet would appear in the other servers once the actual player fired the bullet.
                     firingCallback.Enqueue(FireBullet);
                 }
 

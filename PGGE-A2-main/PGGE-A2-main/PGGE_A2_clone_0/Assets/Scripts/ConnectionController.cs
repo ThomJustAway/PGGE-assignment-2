@@ -10,8 +10,10 @@ namespace PGGE
     {
         public class ConnectionController : MonoBehaviourPunCallbacks
         {
+            //the version the game in, this is demo so just put as game version 1
             const string gameVersion = "1";
 
+            //how many players can join the room
             public byte maxPlayersPerRoom = 3;
 
             public GameObject mConnectionProgress;

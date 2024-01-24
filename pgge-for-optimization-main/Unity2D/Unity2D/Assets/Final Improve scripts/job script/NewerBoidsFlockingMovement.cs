@@ -9,7 +9,7 @@ using UnityEngine.Jobs;
 
 namespace Assets.Experiment_2.job_script
 {
-    //performance is horriible
+    //Have done this but the performance was horrible
     [BurstCompile]
     public struct NewerBoidsFlockingMovement : IJobParallelForTransform
     {
