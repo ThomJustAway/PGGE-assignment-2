@@ -15,8 +15,6 @@ namespace experimenting2
         public float deltaTime;
         public DataRule rulesData;
 
-        //problem: why does the boids disappear after a set frame?
-
         public void Execute(int index, TransformAccess transform)
         {//the index are the same after all...
             MovementObject currentBoid = boidsData[index];

@@ -32,13 +32,14 @@ namespace experimenting2
         [HideInInspector] public JobHandle job;
         //[HideInInspector] public NativeArray<MovementObject> partitionBoids;
 
-        //native movementObject is used to store all the information about the boids for the job system to use
-        [HideInInspector] public NativeList<MovementObject> nativeMovementObjects;
         //this is a temporary new nativeMovementObjects data used so that it can pass the data onto the movement job.
         [HideInInspector] public NativeArray<MovementObject> NativeOutputMovementObjects;
         
         //this is to store the transformaccessarray so that the job system can use it as well as remove it once it is done
         [HideInInspector] public TransformAccessArray nativeTransformAccessArray;
+        //native movementObject is used to store all the information about the boids for the job system to use
+        [HideInInspector] public NativeList<MovementObject> nativeMovementObjects;
+
         public Flock()
         {
         }

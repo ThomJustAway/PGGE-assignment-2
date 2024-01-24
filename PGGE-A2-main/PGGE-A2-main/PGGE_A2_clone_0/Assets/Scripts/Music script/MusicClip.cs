@@ -5,6 +5,7 @@ using UnityEngine;
 namespace Assets.Scripts.Music_script
 {
     [Serializable]
+    //this is the custom data structure to contain the music clip.
     public struct MusicClip 
     {
         public SFXClip sfx;

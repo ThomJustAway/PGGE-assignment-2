@@ -5,6 +5,8 @@ using UnityEngine;
 
 namespace experimenting2
 {
+    //this is the custom data sturcture for the boid. this is used for the job system where the job system
+    //can do something to the data provided
     public struct MovementObject
     {
         public uint id; //unique identifier for each boids
@@ -26,12 +28,14 @@ namespace experimenting2
             this.position = position;
         }
 
+        //ignore this as this is for compute shader
         public static int AmountOfData()
         {
-            return (sizeof(uint) + sizeof(float) * 2 + sizeof(float) * 6);
+            return (sizeof(uint) + sizeof(float) * 8);
         }
     };
 
+    //this is the rule that the job system must abide.
     [Serializable]
     public struct DataRule
     {
@@ -72,6 +76,7 @@ namespace experimenting2
         public bool isPredator ;
     }
 
+    //This is the obstacle struct so that the boids can avoid them.
     public struct BoidsObstacle //special struct for the obstacles so that the boids know where to avoid them
     {
         public float3 position; //the position of the obstacle 
@@ -86,7 +91,7 @@ namespace experimenting2
 
         public static int AmountOfData()
         {
-            return (sizeof(uint) + sizeof(float) * 2 + sizeof(float) * 6);
+            return (sizeof(float) * 5);
         }
     }
 

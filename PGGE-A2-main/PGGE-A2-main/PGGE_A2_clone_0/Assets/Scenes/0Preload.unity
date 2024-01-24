@@ -372,3 +372,18 @@ MonoBehaviour:
     source: {fileID: 0}
     volume: 1
     pitch: 1
+  - sfx: 3
+    clip: {fileID: 8300000, guid: 9b930fa9a22c63e4cb162e9cb0500486, type: 3}
+    source: {fileID: 0}
+    volume: 1
+    pitch: 1
+  - sfx: 5
+    clip: {fileID: 8300000, guid: 5a5c9cdea66669844b0be57727e7fb1d, type: 3}
+    source: {fileID: 0}
+    volume: 1
+    pitch: 1.5
+  - sfx: 6
+    clip: {fileID: 8300000, guid: 5a5c9cdea66669844b0be57727e7fb1d, type: 3}
+    source: {fileID: 0}
+    volume: 1
+    pitch: 1.32
