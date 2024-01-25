@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using Unity.Burst;
 using Unity.Mathematics;
 using UnityEngine;
 
@@ -7,6 +8,7 @@ namespace experimenting2
 {
     //this is the custom data sturcture for the boid. this is used for the job system where the job system
     //can do something to the data provided
+    [BurstCompile]
     public struct MovementObject
     {
         public uint id; //unique identifier for each boids
@@ -37,6 +39,7 @@ namespace experimenting2
 
     //this is the rule that the job system must abide.
     [Serializable]
+    [BurstCompile]
     public struct DataRule
     {
         //this is the struct to contain all the rules so that it can be pass to the job system.
@@ -77,6 +80,7 @@ namespace experimenting2
     }
 
     //This is the obstacle struct so that the boids can avoid them.
+    [BurstCompile]
     public struct BoidsObstacle //special struct for the obstacles so that the boids know where to avoid them
     {
         public float3 position; //the position of the obstacle 
