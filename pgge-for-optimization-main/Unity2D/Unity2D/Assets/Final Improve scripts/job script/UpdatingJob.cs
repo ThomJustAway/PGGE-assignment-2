@@ -4,26 +4,23 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities.UniversalDelegates;
 using Unity.Jobs;
-using UnityEditor.Build.Reporting;
-using UnityEngine;
-using UnityEngine.Jobs;
 
 
-//old legacy code for experimenting
-//namespace Assets.Experiment_2.job_script
-//{
-//    [BurstCompile]
-//    public struct UpdatingJob : IJobParallelFor
-//    {
-//        [ReadOnly] public NativeArray<MovementObject> newData;
-//        [ReadOnly] public TransformAccessArray transforms;
-//        public NativeList<MovementObject> currentData;
 
-//        public void Execute(int index)
-//        {
-//            var boidResult = newData[index];
-//            boidResult.position = transforms[index].position;
-//            currentData[index] = boidResult;
-//        }
-//    }
-//}
+//Job to update the data from the new boid to the current boids
+namespace Assets.Experiment_2.job_script
+{
+    //job to handle the updating of the current list
+    [BurstCompile]
+    public struct UpdatingJob : IJobParallelFor
+    {
+        [ReadOnly] public NativeArray<MovementObject> newData; //the new data
+        public NativeArray<MovementObject> currentData; //the old data (from list to array
+
+        public void Execute(int index)
+        {
+            //Replace the old boid with the new boid data.
+            currentData[index] = newData[index];
+        }
+    }
+}

@@ -37,6 +37,8 @@ namespace experimenting2
         public NativeList<MovementObject> nativeContainerPredatorBoids;
         private Queue<Action> addBoidsCallBack = new Queue<Action>();
 
+
+        [SerializeField] private int partitionUpdateAmount = 1;
         //ignore this as this is for experiementing
         #region compute shader
         [Header("ignore this, it is legacy code")]
@@ -265,7 +267,6 @@ namespace experimenting2
                     {
                         //complete the job to retrieve the data
                         flock.job.Complete();
-                        UpdateBoidsData(flock); //update the boids 
                     }
                 }
             }
@@ -318,18 +319,19 @@ namespace experimenting2
         /// <param name="UpdateBoidsData"></param>
         /// 
 
-        private void UpdateBoidsData(Flock flock)
-        {//the function is still quite slow so change this to be used in job
-            for (int i = 0; i < flock.transforms.Count; i++)
-            {
-                //replace the new result back to the list
-                var boidResult = flock.NativeOutputMovementObjects[i];
-                boidResult.position = flock.transforms[i].position;
-                flock.nativeMovementObjects[i] = boidResult;
-                //just update the position of the boid
-            }
+        //legacy
+        //private void UpdateBoidsData(Flock flock)
+        //{//the function is still quite slow so change this to be used in job
+        //    //for (int i = 0; i < flock.transforms.Count; i++)
+        //    //{
+        //    //    //replace the new result back to the list
+        //    //    var boidResult = flock.NativeOutputMovementObjects[i];
+        //    //    boidResult.position = flock.transforms[i].position;
+        //    //    flock.nativeMovementObjects[i] = boidResult;
+        //    //    //just update the position of the boid
+        //    //}
 
-        }
+        //}
 
         ///// <summary>
         ///// This is to initialize the job so the boids can start moving
@@ -344,10 +346,11 @@ namespace experimenting2
         /// <param name="flock"></param>
         private void StartingJob(Flock flock)
         {
-            //flock.NativeMovementObjectOutputList = new NativeList<MovementObject>()
 
             //fill up the native array with the obstacles for used
             flock.NativeOutputMovementObjects = new NativeArray<MovementObject>(flock.nativeMovementObjects.Capacity, Allocator.TempJob);
+
+            NativeArray<MovementObject> currentData = flock.nativeMovementObjects.AsArray();
 
             //create the random element so that the boids can have randomness in their movement
             uint randomNumber = 5;
@@ -356,9 +359,9 @@ namespace experimenting2
             //this is to calculate the target direction and speed of the boids so that it can be used in the moving of the boids
             BoidsFlockingMovement calculatingFlockingMovementJob = new BoidsFlockingMovement()
             {
-                AllTheBoids = flock.nativeMovementObjects,
+                AllTheBoids = currentData,
                 rules = flock.rules,
-                output = flock.NativeOutputMovementObjects,
+                //output = flock.NativeOutputMovementObjects,
                 obstacles = nativeContainerObstacles,
                 boxBound = Bounds.bounds,
                 predatorBoids = nativeContainerPredatorBoids,
@@ -368,7 +371,7 @@ namespace experimenting2
             //this is to move the boids once the calculating is done.
             MovingMovementObject movingBoidJob = new MovingMovementObject()
             {
-                boidsData = flock.NativeOutputMovementObjects,
+                boidsData = currentData,
                 deltaTime = Time.deltaTime,
                 rulesData = flock.rules,
             };
@@ -376,9 +379,12 @@ namespace experimenting2
             //create the transform access array so that the boid transform can be access in the job system
             flock.nativeTransformAccessArray = new TransformAccessArray(flock.transforms.ToArray());
 
-            JobHandle CalculatingJob = calculatingFlockingMovementJob.Schedule(flock.transforms.Count, 1);
+            int length = flock.transforms.Count;
+
+            JobHandle CalculatingJob = calculatingFlockingMovementJob.Schedule(length, 1);
+
             //schedule the calculating job once the calculating job is done.
-            JobHandle movingJob = movingBoidJob.Schedule(flock.nativeTransformAccessArray, CalculatingJob); 
+            JobHandle movingJob = movingBoidJob.Schedule(flock.nativeTransformAccessArray, CalculatingJob);
 
             flock.job = movingJob;
         }

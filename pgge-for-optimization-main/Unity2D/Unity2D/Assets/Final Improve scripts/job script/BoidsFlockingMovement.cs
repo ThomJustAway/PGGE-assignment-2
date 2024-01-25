@@ -23,12 +23,14 @@ namespace experimenting2
     public struct BoidsFlockingMovement : IJobParallelFor
     {
         //will require all the boids so that the boid can know where the boids are nearby and do calculation based on that.
-        [ReadOnly] public NativeList<MovementObject> AllTheBoids;
+
+        [NativeDisableParallelForRestriction]
+        public NativeArray<MovementObject> AllTheBoids;
         // this are all the predator boids so that the boids can avoid them
         [ReadOnly] public NativeList<MovementObject> predatorBoids;
         //this is obstacles so that the boids can avoid them
         [ReadOnly] public NativeArray<BoidsObstacle> obstacles;
-        public NativeArray<MovementObject> output;
+
         public DataRule rules;
         public Bounds boxBound;
         public Unity.Mathematics.Random random;
@@ -42,7 +44,7 @@ namespace experimenting2
             curr = HandleBoundries(curr);//apply boundries to the boids
             //add this together to form the final direction needed for the boid.
             //place it into the output index so that it can be sed for the moving movementObject.
-            output[index] = curr;
+            AllTheBoids[index] = curr;
         }
 
         //handle the main flocking behaviour

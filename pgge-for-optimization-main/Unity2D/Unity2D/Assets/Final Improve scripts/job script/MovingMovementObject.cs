@@ -15,9 +15,12 @@ namespace experimenting2
     public struct MovingMovementObject : IJobParallelForTransform
     {
         //will only be reading data found from the flocking movement
-        [ReadOnly] public NativeArray<MovementObject> boidsData;
+        [NativeDisableParallelForRestriction]
+        public NativeArray<MovementObject> boidsData;
+
         public float deltaTime; //delta time is pass as it time.delta time cant be used in jobs
         public DataRule rulesData; //rules data for the max speed and rotation.
+
 
 
         public void Execute(int index, TransformAccess transform)
@@ -29,6 +32,10 @@ namespace experimenting2
 
             RotateGameObjectBasedOnTargetDirection(currentBoid, transform); //will rotate the boid
             MoveObject(currentBoid, transform); //will then move the boid
+
+            currentBoid.position = transform.position;
+
+            boidsData[index] = currentBoid;
         }
 
         //this is the function used to move the game object
