@@ -185,10 +185,9 @@ namespace experimenting2
             boid.targetDirection = Normalise(boid.targetDirection);
 
             return boid;
-
-
             //average the speed for the boid
         }
+
         //for avoiding obstacles
         private MovementObject DoAvoidObstacleBehaviour(MovementObject boid)
         {

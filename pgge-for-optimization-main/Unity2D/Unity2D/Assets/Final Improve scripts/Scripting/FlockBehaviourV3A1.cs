@@ -40,9 +40,9 @@ namespace experimenting2
         //ignore this as this is for experiementing
         #region compute shader
         [Header("ignore this, it is legacy code")]
-        [Range(5 , 1000)]
         [SerializeField] private bool useGPU;
         [SerializeField] private ComputeShader ComputeShaderFlocking;
+        [Range(5 , 1000)]
         [SerializeField] private int partitionAmount = 1000; //how many 
 
         //compute buffers

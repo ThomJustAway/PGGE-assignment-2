@@ -21,7 +21,7 @@ namespace PGGE.Player
         public Animator mAnimator;
         public PlayerMovement mPlayerMovement;
 
-        #region shooting variables
+        #region shooting related
         // This is the maximum number of bullets that the player 
         // needs to fire before reloading.
         // This is the total number of bullets that the 
@@ -51,9 +51,11 @@ namespace PGGE.Player
         private bool firedBullet;
         #endregion
 
+        #region UI
         public LayerMask mPlayerMask;
         public Canvas mCanvas;
         public RectTransform mCrossHair;
+        #endregion
 
         #region health
         //this is for the Health and UI
